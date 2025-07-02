@@ -75,25 +75,15 @@
 
 // **************************** 代码区域 ****************************
 
-#define LED1                (H2 )
-#define LED2                (B13)
+#define MAX_DUTY            (50 )                                               // 最大 MAX_DUTY% 占空比
+#define DIR_L               (A0 )
+#define PWM_L               (TIM5_PWM_CH2_A1)
 
-void main_menu_init(void)
-{
-	ips200_clear();
-	ips200_show_string(0,0,"Main menu");
-	ips200_show_string(24,16,"Motor Paramter");
-	ips200_show_string(24,32,"Image mode");
-	ips200_show_string(24,48,"Departure mode");
-}
+#define DIR_R               (A2 )
+#define PWM_R               (TIM5_PWM_CH4_A3)
 
-void motor_param_menu_init(void)
-{
-	ips200_clear();
-	ips200_show_string(0,0,"Motor param");
-	ips200_show_string(24,16,"x");
-	ips200_show_string(24,32,"Back to main");
-}
+int8 duty = 0;
+bool dir = true;
 
 int main (void)
 {
@@ -105,10 +95,11 @@ int main (void)
    // 此处编写用户代码 例如外设初始化代码等
 	ips200_init(IPS200_TYPE_SPI);
 	
-//	gpio_init(KEY1, GPI, GPIO_HIGH, GPI_PULL_UP);
-//	gpio_init(KEY2, GPI, GPIO_HIGH, GPI_PULL_UP);
-//	gpio_init(KEY3, GPI, GPIO_HIGH, GPI_PULL_UP);
-//	gpio_init(KEY4, GPI, GPIO_HIGH, GPI_PULL_UP);
+	gpio_init(DIR_L, GPO, GPIO_HIGH, GPO_PUSH_PULL);                            // GPIO 初始化为输出 默认上拉输出高
+    pwm_init(PWM_L, 17000, 0);                                                  // PWM 通道初始化频率 17KHz 占空比初始为 0
+
+    gpio_init(DIR_R, GPO, GPIO_HIGH, GPO_PUSH_PULL);                            // GPIO 初始化为输出 默认上拉输出高
+    pwm_init(PWM_R, 17000, 0);                                                  // PWM 通道初始化频率 17KHz 占空比初始为 0
 	
 	key_init(10); 
 	
@@ -125,6 +116,7 @@ int main (void)
 	{
 		fsm_Event current_event=no_matter;
 		int num=menu_num(current_state);
+		//************************按键扫描****************************
 		key_scanner();
 		if(key_get_state(KEY_1) == KEY_SHORT_PRESS&&KEY_LONG_PRESS)
 		{
@@ -146,9 +138,11 @@ int main (void)
 			current_event=esc;
 			key_clear_state(KEY_4);
 		}
-//		else current_event=no_matter;
+		//****************************按键扫描*****************************
+		//******************************菜单*******************************
 		switch(current_state)
 		{
+			//***********************Main menu****************************
 			case M_m:
 				switch(current_event)
 				{
@@ -165,9 +159,9 @@ int main (void)
 					case enter:
 						switch(current_p)
 						{
-							case 0:
-								motor_param_menu_init();
+							case 0://Motor Param
 								current_state=M_Param;
+								motor_param_menu_init();
 								ips200_show_string(0,16,"->");
 								current_p=0;
 								break;
@@ -184,6 +178,8 @@ int main (void)
 						break;
 				}
 				break;
+			//***********************Main menu****************************
+			//*******************Motor Param menu*************************
 			case M_Param:
 				switch(current_event)
 				{
@@ -200,27 +196,82 @@ int main (void)
 					case enter:
 						switch(current_p)
 						{
-							case 0:
-								current_state=x;
-								break;
-							case 1://back to main
-								current_state=M_m;
-								main_menu_init();
-								ips200_show_string(0,16,"->");
-								current_p=0;
+							case 0://duty
+								current_state=M_duty;
+								motor_duty_menu_init(duty);
 								break;
 							default:
 								break;
 						}
+					case esc:
+						current_state=M_m;
+						main_menu_init();
+						ips200_show_string(0,16,"->");
+						current_p=0;
+						break;
 					default:
 						break;
 				}
 				break;
+			//*******************Motor Param menu**************************
+			//**********************Motor Duty*****************************
+			case M_duty:
+				switch(current_event)
+				{
+					case up:
+						duty++;
+						break;
+					case down:
+						duty--;
+						break;
+					case esc:
+						current_state=M_Param;
+						motor_param_menu_init();
+						ips200_show_string(0,16,"->");
+						current_p=0;
+						break;
+					default:
+						break;
+				}
+			//**********************Motor Duty*****************************
 			default:
 				break;
 		}
-		
-		
+		//******************************菜单*******************************
+		//******************************电机*******************************
+		if(0 <= duty)                                                           // 正转
+        {
+            gpio_set_level(DIR_L, GPIO_HIGH);                                   // DIR输出高电平
+            pwm_set_duty(PWM_L, duty * (PWM_DUTY_MAX / 100));                   // 计算占空比
+
+            gpio_set_level(DIR_R, GPIO_HIGH);                                   // DIR输出高电平
+            pwm_set_duty(PWM_R, duty * (PWM_DUTY_MAX / 100));                   // 计算占空比
+        }
+        else                                                                    // 反转
+        {
+            gpio_set_level(DIR_L, GPIO_LOW);                                    // DIR输出低电平
+            pwm_set_duty(PWM_L, (-duty) * (PWM_DUTY_MAX / 100));                // 计算占空比
+
+            gpio_set_level(DIR_R, GPIO_LOW);                                    // DIR输出低电平
+            pwm_set_duty(PWM_R, (-duty) * (PWM_DUTY_MAX / 100));                // 计算占空比
+        }
+        if(dir)                                                                 // 根据方向判断计数方向 本例程仅作参考
+        {
+            duty ++;                                                            // 正向计数
+            if(MAX_DUTY <= duty)                                                // 达到最大值
+            {
+                dir = false;                                                    // 变更计数方向
+            }
+        }
+        else
+        {
+            duty --;                                                            // 反向计数
+            if(-MAX_DUTY >= duty)                                               // 达到最小值
+            {
+                dir = true;                                                     // 变更计数方向
+            }
+        }
+		//******************************电机*******************************
 		system_delay_ms(5);
 	}
 }

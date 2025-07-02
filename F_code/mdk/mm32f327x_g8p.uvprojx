@@ -410,14 +410,14 @@
           <GroupName>code</GroupName>
           <Files>
             <File>
-              <FileName>fsm.c</FileName>
+              <FileName>menu.c</FileName>
               <FileType>1</FileType>
-              <FilePath>..\code\fsm.c</FilePath>
+              <FilePath>..\code\menu.c</FilePath>
             </File>
             <File>
-              <FileName>fsm.h</FileName>
+              <FileName>menu.h</FileName>
               <FileType>5</FileType>
-              <FilePath>..\code\fsm.h</FilePath>
+              <FilePath>..\code\menu.h</FilePath>
             </File>
           </Files>
         </Group>

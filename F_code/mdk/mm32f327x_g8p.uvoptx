@@ -235,7 +235,7 @@
 
   <Group>
     <GroupName>user_h</GroupName>
-    <tvExp>0</tvExp>
+    <tvExp>1</tvExp>
     <tvExpOptDlg>0</tvExpOptDlg>
     <cbSel>0</cbSel>
     <RteFlg>0</RteFlg>
@@ -266,8 +266,8 @@
       <tvExp>0</tvExp>
       <tvExpOptDlg>0</tvExpOptDlg>
       <bDave2>0</bDave2>
-      <PathWithFileName>..\code\fsm.c</PathWithFileName>
-      <FilenameWithoutPath>fsm.c</FilenameWithoutPath>
+      <PathWithFileName>..\code\menu.c</PathWithFileName>
+      <FilenameWithoutPath>menu.c</FilenameWithoutPath>
       <RteFlg>0</RteFlg>
       <bShared>0</bShared>
     </File>
@@ -278,8 +278,8 @@
       <tvExp>0</tvExp>
       <tvExpOptDlg>0</tvExpOptDlg>
       <bDave2>0</bDave2>
-      <PathWithFileName>..\code\fsm.h</PathWithFileName>
-      <FilenameWithoutPath>fsm.h</FilenameWithoutPath>
+      <PathWithFileName>..\code\menu.h</PathWithFileName>
+      <FilenameWithoutPath>menu.h</FilenameWithoutPath>
       <RteFlg>0</RteFlg>
       <bShared>0</bShared>
     </File>
@@ -899,7 +899,7 @@
 
   <Group>
     <GroupName>zf_device</GroupName>
-    <tvExp>1</tvExp>
+    <tvExp>0</tvExp>
     <tvExpOptDlg>0</tvExpOptDlg>
     <cbSel>0</cbSel>
     <RteFlg>0</RteFlg>
