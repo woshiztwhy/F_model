@@ -82,7 +82,7 @@
 #define DIR_R               (A2 )
 #define PWM_R               (TIM5_PWM_CH4_A3)
 
-int8 duty = 0;
+int duty = 0;
 bool dir = true;
 
 int main (void)
@@ -199,10 +199,15 @@ int main (void)
 							case 0://duty
 								current_state=M_duty;
 								motor_duty_menu_init(duty);
+								current_p=0;
+								break;
+							case 1:
+								current_state=y;
 								break;
 							default:
 								break;
 						}
+						break;
 					case esc:
 						current_state=M_m;
 						main_menu_init();
@@ -219,10 +224,12 @@ int main (void)
 				switch(current_event)
 				{
 					case up:
-						duty++;
+						duty=(duty+100+1)%200-100;
+						motor_duty_menu_init(duty);
 						break;
 					case down:
-						duty--;
+						duty=(duty+100-1)%200-100;
+						motor_duty_menu_init(duty);
 						break;
 					case esc:
 						current_state=M_Param;
@@ -233,6 +240,7 @@ int main (void)
 					default:
 						break;
 				}
+				break;
 			//**********************Motor Duty*****************************
 			default:
 				break;
@@ -255,24 +263,8 @@ int main (void)
             gpio_set_level(DIR_R, GPIO_LOW);                                    // DIR输出低电平
             pwm_set_duty(PWM_R, (-duty) * (PWM_DUTY_MAX / 100));                // 计算占空比
         }
-        if(dir)                                                                 // 根据方向判断计数方向 本例程仅作参考
-        {
-            duty ++;                                                            // 正向计数
-            if(MAX_DUTY <= duty)                                                // 达到最大值
-            {
-                dir = false;                                                    // 变更计数方向
-            }
-        }
-        else
-        {
-            duty --;                                                            // 反向计数
-            if(-MAX_DUTY >= duty)                                               // 达到最小值
-            {
-                dir = true;                                                     // 变更计数方向
-            }
-        }
 		//******************************电机*******************************
-		system_delay_ms(5);
+		system_delay_ms(10);
 	}
 }
 // **************************** 代码区域 ****************************

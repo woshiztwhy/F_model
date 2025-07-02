@@ -37,7 +37,7 @@ void motor_duty_menu_init(int duty)
 {
 	ips200_clear();
 	ips200_show_string(0,0,"Motor duty:");
-	ips200_show_int(96,0,duty,3);
+	ips200_show_int(96,0,duty,4);
 }
 
 //******************≤Àµ•≥ı ºªØ****************************
