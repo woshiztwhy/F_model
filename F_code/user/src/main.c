@@ -84,6 +84,7 @@
 
 int duty = 0;
 bool dir = true;
+int Threshold = 0;
 
 int main (void)
 {
@@ -132,6 +133,14 @@ int main (void)
 	
     while(1)
 	{
+		//************************图像处理****************************
+		if(mt9v03x_finish_flag)                                                    //先处理图像，再清除标志位
+		{
+			Threshold=My_Adapt_Threshold(mt9v03x_image[0],MT9V03X_W, MT9V03X_H);   //大津算阈值
+			Image_Binarization(Threshold);                                         //图像二值化
+			mt9v03x_finish_flag=0;                                                 //标志位清除
+		}
+		//************************图像处理****************************
 		fsm_Event current_event=no_matter;
 		int num=menu_num(current_state);
 		//************************按键扫描****************************
@@ -287,6 +296,8 @@ int main (void)
 								break;
 							case 1:                //Binary
 								current_state=Binary_Im;
+								ips200_clear();
+								current_p=0;
 								break;
 							default:
 								break;
@@ -305,7 +316,7 @@ int main (void)
 			//**********************Image Mode*****************************
 			//**********************Grey image*****************************
 			case Grey_Im:
-				ips200_displayimage03x((const uint8 *)mt9v03x_image, MT9V03X_W, 120);
+				ips200_displayimage03x((const uint8 *)mt9v03x_image, MT9V03X_W, MT9V03X_H);
 				switch(current_event)
 				{
 					case esc:
@@ -319,6 +330,22 @@ int main (void)
 				}
 				break;		
 			//**********************Grey image*****************************
+			//*********************Binary image****************************
+			case Binary_Im:
+				ips200_show_gray_image(0, 0, (const uint8 *)mt9v03x_image, MT9V03X_W, MT9V03X_H, MT9V03X_W, MT9V03X_H, Threshold);
+				switch(current_event)
+				{
+					case esc:
+						current_state=I_mode;
+						image_mode_menu_init();
+						ips200_show_string(0,16,"->");
+						current_p=0;
+						break;
+					default:
+						break;
+				}
+				break;		
+			//*********************Binary image****************************
 			default:
 				break;
 		}
@@ -341,6 +368,7 @@ int main (void)
             pwm_set_duty(PWM_R, (-duty) * (PWM_DUTY_MAX / 100));                // 计算占空比
         }
 		//******************************电机*******************************
+		mt9v03x_finish_flag=0;
 		system_delay_ms(10);
 	}
 }
