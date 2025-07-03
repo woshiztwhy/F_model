@@ -9,6 +9,8 @@ int menu_num(fsm_State current_menu)//获取选项数
 			return 3;
 		case M_Param:
 			return 2;
+		case I_mode:
+			return 2;
 		default:
 			break;
 	}
@@ -38,6 +40,14 @@ void motor_duty_menu_init(int duty)
 	ips200_clear();
 	ips200_show_string(0,0,"Motor duty:");
 	ips200_show_int(96,0,duty,4);
+}
+
+void image_mode_menu_init(void)
+{
+	ips200_clear();
+	ips200_show_string(0,0,"Image mode");
+	ips200_show_string(24,16,"Grey image");
+	ips200_show_string(24,32,"Binary image");
 }
 
 //******************菜单初始化****************************

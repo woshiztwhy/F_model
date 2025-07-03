@@ -103,6 +103,24 @@ int main (void)
 	
 	key_init(10); 
 	
+	//**********************总钻风初始化***********************
+	ips200_show_string(0, 0, "mt9v03x init.");
+    while(1)
+    {
+        if(mt9v03x_init())
+        {
+            ips200_show_string(0, 16, "mt9v03x reinit.");
+        }
+        else
+        {
+            break;
+        }
+        system_delay_ms(500);                                                   // 短延时快速闪灯表示异常
+    }
+    ips200_show_string(0, 16, "init success.");
+	system_delay_ms(500);
+	//**********************总钻风初始化************************
+	
 	main_menu_init();
 	ips200_show_string(0,16,"->");
 	
@@ -166,7 +184,10 @@ int main (void)
 								current_p=0;
 								break;
 							case 1:
-								current_state=I_m;
+								current_state=I_mode;
+								image_mode_menu_init();
+								ips200_show_string(0,16,"->");
+								current_p=0;
 								break;
 							case 2:
 								current_state=D_m;
@@ -242,6 +263,62 @@ int main (void)
 				}
 				break;
 			//**********************Motor Duty*****************************
+			//**********************Image Mode*****************************
+			case I_mode:
+				switch(current_event)
+				{
+					case up:
+						current_p=(current_p+num-1)%num;
+						image_mode_menu_init();
+						ips200_show_string(0,(current_p+1)*16,"->");
+						break;
+					case down:
+						current_p=(current_p+1)%num;
+						image_mode_menu_init();
+						ips200_show_string(0,(current_p+1)*16,"->");
+						break;
+					case enter:
+						switch(current_p)
+						{
+							case 0:                //Grey
+								current_state=Grey_Im;
+								ips200_clear();
+								current_p=0;
+								break;
+							case 1:                //Binary
+								current_state=Binary_Im;
+								break;
+							default:
+								break;
+						}
+						break;
+					case esc:
+						current_state=M_m;
+						main_menu_init();
+						ips200_show_string(0,16,"->");
+						current_p=0;
+						break;
+					default:
+						break;
+				}
+				break;	
+			//**********************Image Mode*****************************
+			//**********************Grey image*****************************
+			case Grey_Im:
+				ips200_displayimage03x((const uint8 *)mt9v03x_image, MT9V03X_W, 120);
+				switch(current_event)
+				{
+					case esc:
+						current_state=I_mode;
+						image_mode_menu_init();
+						ips200_show_string(0,16,"->");
+						current_p=0;
+						break;
+					default:
+						break;
+				}
+				break;		
+			//**********************Grey image*****************************
 			default:
 				break;
 		}

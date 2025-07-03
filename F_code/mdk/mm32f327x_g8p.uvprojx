@@ -419,6 +419,16 @@
               <FileType>5</FileType>
               <FilePath>..\code\menu.h</FilePath>
             </File>
+            <File>
+              <FileName>image_deal.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\code\image_deal.c</FilePath>
+            </File>
+            <File>
+              <FileName>image_deal.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\code\image_deal.h</FilePath>
+            </File>
           </Files>
         </Group>
         <Group>
