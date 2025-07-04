@@ -1,7 +1,7 @@
 #include "menu.h"
 #include "zf_device_ips200.h"
 
-int menu_num(fsm_State current_menu)//获取选项数
+uint8 menu_num(fsm_State current_menu)//获取选项数
 {
 	switch(current_menu)
 	{

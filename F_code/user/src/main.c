@@ -129,7 +129,7 @@ int main (void)
 	
 	fsm_State current_state=M_m;
 	
-	int current_p=0;
+	uint8 current_p=0;
 	
     while(1)
 	{
@@ -138,6 +138,7 @@ int main (void)
 		{
 			Threshold=My_Adapt_Threshold(mt9v03x_image[0],MT9V03X_W, MT9V03X_H);   //大津算阈值
 			Image_Binarization(Threshold);                                         //图像二值化
+			Longest_White_Column();                                                //最长白线法寻边线
 			mt9v03x_finish_flag=0;                                                 //标志位清除
 		}
 		//************************图像处理****************************

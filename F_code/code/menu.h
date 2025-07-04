@@ -1,6 +1,7 @@
 #ifndef _menu_h
 #define _menu_h
 
+#include "zf_common_typedef.h"
 //×´Ì¬¶¨Òå
 typedef enum
 {
@@ -28,7 +29,7 @@ typedef enum
 	
 }fsm_Event;
 
-int menu_num(fsm_State current_menu);
+uint8 menu_num(fsm_State current_menu);
 
 void main_menu_init(void);
 void motor_param_menu_init(void);
