@@ -46,8 +46,8 @@ void image_mode_menu_init(void)
 {
 	ips200_clear();
 	ips200_show_string(0,0,"Image mode");
-	ips200_show_string(24,16,"Grey image");
-	ips200_show_string(24,32,"Binary image");
+	ips200_show_string(24,16,"Binary image");
+	ips200_show_string(24,32,"Grey image");
 }
 
 //******************≤Àµ•≥ı ºªØ****************************

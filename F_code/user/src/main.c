@@ -82,9 +82,21 @@
 #define DIR_R               (A2 )
 #define PWM_R               (TIM5_PWM_CH4_A3)
 
+#define ENCODER_1                   (TIM3_ENCODER)
+#define ENCODER_1_A                 (TIM3_ENCODER_CH1_B4)
+#define ENCODER_1_B                 (TIM3_ENCODER_CH2_B5)
+
+#define ENCODER_2                   (TIM4_ENCODER)
+#define ENCODER_2_A                 (TIM4_ENCODER_CH1_B6)
+#define ENCODER_2_B                 (TIM4_ENCODER_CH2_B7)
+
+#define PIT                         (TIM6_PIT )                                 // 使用的周期中断编号 如果修改 需要同步对应修改周期中断编号与 isr.c 中的调用
+
 int duty = 0;
 bool dir = true;
 int Threshold = 0;
+int16 Speed_Left_Real=0;
+int16 Speed_Right_Real=0;
 
 int main (void)
 {
@@ -103,6 +115,10 @@ int main (void)
     pwm_init(PWM_R, 17000, 0);                                                  // PWM 通道初始化频率 17KHz 占空比初始为 0
 	
 	key_init(10); 
+	
+	encoder_quad_init(ENCODER_1, ENCODER_1_A, ENCODER_1_B);                     // 初始化编码器模块与引脚 正交解码编码器模式
+    encoder_quad_init(ENCODER_2, ENCODER_2_A, ENCODER_2_B);                     // 初始化编码器模块与引脚 正交解码编码器模式
+    pit_ms_init(PIT, 100);
 	
 	//**********************总钻风初始化***********************
 	ips200_show_string(0, 0, "mt9v03x init.");
@@ -290,12 +306,12 @@ int main (void)
 					case enter:
 						switch(current_p)
 						{
-							case 0:                //Grey
+							case 1:                //Grey
 								current_state=Grey_Im;
 								ips200_clear();
 								current_p=0;
 								break;
-							case 1:                //Binary
+							case 0:                //Binary
 								current_state=Binary_Im;
 								ips200_clear();
 								current_p=0;
@@ -334,6 +350,11 @@ int main (void)
 			//*********************Binary image****************************
 			case Binary_Im:
 				ips200_show_gray_image(0, 0, (const uint8 *)mt9v03x_image, MT9V03X_W, MT9V03X_H, MT9V03X_W, MT9V03X_H, Threshold);
+				ips200_draw_line(90,0,90,70,RGB565_RED);
+				for(int i=0;i<MT9V03X_H;i++)
+				{
+					ips200_draw_point((Left_Line[i]+Right_Line[i])>>1,i,RGB565_RED);
+				}
 				switch(current_event)
 				{
 					case esc:
@@ -372,6 +393,21 @@ int main (void)
 		mt9v03x_finish_flag=0;
 		system_delay_ms(10);
 	}
+}
+
+//-------------------------------------------------------------------------------------------------------------------
+// 函数简介     PIT 的中断处理函数 这个函数将在 PIT 对应的定时器中断调用 详见 isr.c
+// 参数说明     void
+// 返回参数     void
+// 使用示例     pit_handler();
+//-------------------------------------------------------------------------------------------------------------------
+void pit_handler (void)
+{
+    Speed_Left_Real = -encoder_get_count(ENCODER_1);                              // 获取编码器计数
+    encoder_clear_count(ENCODER_1);                                             // 清空编码器计数
+
+    Speed_Right_Real = -encoder_get_count(ENCODER_2);                              // 获取编码器计数
+    encoder_clear_count(ENCODER_2);                                             // 清空编码器计数
 }
 // **************************** 代码区域 ****************************
 

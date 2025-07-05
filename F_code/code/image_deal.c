@@ -2,23 +2,25 @@
 
 uint8    image_two_value[MT9V03X_H][MT9V03X_W];
 
-uint8    Longest_White_Column_Left[2];
-uint8    Longest_White_Column_Right[2];
-uint8    Right_Lost_Time;
-uint8    Left_Lost_Time;
-uint8    Boundry_Start_Left;
-uint8    Boundry_Start_Right;
-uint8    Both_Lost_Time;
-uint8    Right_Lost_Flag[MT9V03X_H];
-uint8    Left_Lost_Flag[MT9V03X_H];
-uint8    Left_Line[MT9V03X_H];
-uint8    Right_Line[MT9V03X_H];
-uint8    White_Column[MT9V03X_W];
-uint8    Right_Island_Flag;
-uint8    Left_Island_Flag;
-uint8    Island_State;
-uint8    Search_Stop_Line;
-uint8    Road_Wide[MT9V03X_H];
+const uint8  Standard_Road_Wide[MT9V03X_H];//标准赛宽数组
+volatile int Left_Line[MT9V03X_H]; //左边线数组
+volatile int Right_Line[MT9V03X_H];//右边线数组
+volatile int Mid_Line[MT9V03X_H];  //中线数组
+volatile int Road_Wide[MT9V03X_H]; //实际赛宽数组
+volatile int White_Column[MT9V03X_W];//每列白列长度
+volatile int Search_Stop_Line;     //搜索截止行,只记录长度，想要坐标需要用视野高度减去该值
+volatile int Boundry_Start_Left;   //左右边界起始点
+volatile int Boundry_Start_Right;  //第一个非丢线点,常规边界起始点
+volatile int Left_Lost_Time;       //边界丢线数
+volatile int Right_Lost_Time;
+volatile int Both_Lost_Time;//两边同时丢线数
+int Longest_White_Column_Left[2]; //最长白列,[0]是最长白列的长度，也就是Search_Stop_Line搜索截止行，[1】是第某列
+int Longest_White_Column_Right[2];//最长白列,[0]是最长白列的长度，也就是Search_Stop_Line搜索截止行，[1】是第某列
+int Left_Lost_Flag[MT9V03X_H] ; //左丢线数组，丢线置1，没丢线置0
+int Right_Lost_Flag[MT9V03X_H]; //右丢线数组，丢线置1，没丢线置0
+uint8 Right_Island_Flag;
+uint8 Left_Island_Flag;
+uint8 Island_State;
 /*-------------------------------------------------------------------------------------------------------------------
   @brief     普通大津求阈值
   @param     image       图像数组
