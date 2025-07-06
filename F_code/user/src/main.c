@@ -92,7 +92,8 @@
 
 #define PIT                         (TIM6_PIT )                                 // 使用的周期中断编号 如果修改 需要同步对应修改周期中断编号与 isr.c 中的调用
 
-int duty = 0;
+int Left_duty = 0;
+int Right_duty = 0;
 bool dir = true;
 int Threshold = 0;
 int16 Speed_Left_Real=0;
@@ -102,8 +103,6 @@ int16 Speed_Set=100;
 
 PID Direction_PID={0};
 PID Speed_PID={0};
-
-float pid_out=0;
 
 int main (void)
 {
@@ -126,6 +125,9 @@ int main (void)
 	encoder_dir_init(ENCODER_1, ENCODER_1_A, ENCODER_1_B);                     // 初始化编码器模块与引脚 
     encoder_dir_init(ENCODER_2, ENCODER_2_A, ENCODER_2_B);                     // 初始化编码器模块与引脚 
     pit_ms_init(PIT, 100);
+	
+	PID_Init(&Direction_PID,0,0,0,8,10);
+	PID_Init(&Speed_PID,0,0,0,8,10);
 	
 	//**********************总钻风初始化***********************
 	ips200_show_string(0, 0, "mt9v03x init.");
@@ -252,8 +254,8 @@ int main (void)
 						{
 							case 0://duty
 								current_state=M_duty;
-								motor_duty_menu_init(duty);
-								current_p=0;
+//								motor_duty_menu_init(duty);
+//								current_p=0;
 								break;
 							case 1:
 								current_state=y;
@@ -274,27 +276,27 @@ int main (void)
 				break;
 			//*******************Motor Param menu**************************
 			//**********************Motor Duty*****************************
-			case M_duty:
-				switch(current_event)
-				{
-					case up:
-						duty=(duty+100+1)%200-100;
-						motor_duty_menu_init(duty);
-						break;
-					case down:
-						duty=(duty+100-1)%200-100;
-						motor_duty_menu_init(duty);
-						break;
-					case esc:
-						current_state=M_Param;
-						motor_param_menu_init();
-						ips200_show_string(0,16,"->");
-						current_p=0;
-						break;
-					default:
-						break;
-				}
-				break;
+//			case M_duty:
+//				switch(current_event)
+//				{
+//					case up:
+//						duty=(duty+100+1)%200-100;
+//						motor_duty_menu_init(duty);
+//						break;
+//					case down:
+//						duty=(duty+100-1)%200-100;
+//						motor_duty_menu_init(duty);
+//						break;
+//					case esc:
+//						current_state=M_Param;
+//						motor_param_menu_init();
+//						ips200_show_string(0,16,"->");
+//						current_p=0;
+//						break;
+//					default:
+//						break;
+//				}
+//				break;
 			//**********************Motor Duty*****************************
 			//**********************Image Mode*****************************
 			case I_mode:
@@ -384,28 +386,32 @@ int main (void)
 		
 		PID_Calc(&Speed_PID,(float)(100-Speed_Real));
 		PID_Calc(&Direction_PID,Err_Sum());
-		pid_out=Speed_PID.output+Direction_PID.output;
 		
 		//*************************PID数据计算******************************
-		
-		duty+=pid_out;
+		Left_duty=Left_duty+Speed_PID.output-Direction_PID.output;
+		Right_duty=Left_duty+Speed_PID.output+Direction_PID.output;
 		
 		//******************************电机*******************************
-		if(0 <= duty)                                                           // 正转
+		if(0 <= Left_duty)                                                           // 正转
         {
             gpio_set_level(DIR_L, GPIO_HIGH);                                   // DIR输出高电平
-            pwm_set_duty(PWM_L, duty * (PWM_DUTY_MAX / 100));                   // 计算占空比
-
-            gpio_set_level(DIR_R, GPIO_HIGH);                                   // DIR输出高电平
-            pwm_set_duty(PWM_R, duty * (PWM_DUTY_MAX / 100));                   // 计算占空比
+            pwm_set_duty(PWM_L, Left_duty * (PWM_DUTY_MAX / 100));              // 计算占空比
         }
         else                                                                    // 反转
         {
             gpio_set_level(DIR_L, GPIO_LOW);                                    // DIR输出低电平
-            pwm_set_duty(PWM_L, (-duty) * (PWM_DUTY_MAX / 100));                // 计算占空比
-
+            pwm_set_duty(PWM_L, (-Left_duty) * (PWM_DUTY_MAX / 100));                // 计算占空比
+        }
+		
+		if(0 <= Right_duty)                                                           // 正转
+        {
+            gpio_set_level(DIR_R, GPIO_HIGH);                                   // DIR输出高电平
+            pwm_set_duty(PWM_R, Right_duty * (PWM_DUTY_MAX / 100));              // 计算占空比
+        }
+        else                                                                    // 反转
+        {
             gpio_set_level(DIR_R, GPIO_LOW);                                    // DIR输出低电平
-            pwm_set_duty(PWM_R, (-duty) * (PWM_DUTY_MAX / 100));                // 计算占空比
+            pwm_set_duty(PWM_R, (-Right_duty) * (PWM_DUTY_MAX / 100));                // 计算占空比
         }
 		//******************************电机*******************************
 		mt9v03x_finish_flag=0;
