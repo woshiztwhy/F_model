@@ -430,14 +430,14 @@
               <FilePath>..\code\image_deal.h</FilePath>
             </File>
             <File>
-              <FileName>motor_control.c</FileName>
+              <FileName>PID.c</FileName>
               <FileType>1</FileType>
-              <FilePath>..\code\motor_control.c</FilePath>
+              <FilePath>..\code\PID.c</FilePath>
             </File>
             <File>
-              <FileName>motor_control.h</FileName>
+              <FileName>PID.h</FileName>
               <FileType>5</FileType>
-              <FilePath>..\code\motor_control.h</FilePath>
+              <FilePath>..\code\PID.h</FilePath>
             </File>
           </Files>
         </Group>

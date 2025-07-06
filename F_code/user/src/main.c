@@ -97,6 +97,13 @@ bool dir = true;
 int Threshold = 0;
 int16 Speed_Left_Real=0;
 int16 Speed_Right_Real=0;
+int16 Speed_Real=0;
+int16 Speed_Set=100;
+
+PID Direction_PID={0};
+PID Speed_PID={0};
+
+float pid_out=0;
 
 int main (void)
 {
@@ -116,8 +123,8 @@ int main (void)
 	
 	key_init(10); 
 	
-	encoder_quad_init(ENCODER_1, ENCODER_1_A, ENCODER_1_B);                     // 初始化编码器模块与引脚 正交解码编码器模式
-    encoder_quad_init(ENCODER_2, ENCODER_2_A, ENCODER_2_B);                     // 初始化编码器模块与引脚 正交解码编码器模式
+	encoder_dir_init(ENCODER_1, ENCODER_1_A, ENCODER_1_B);                     // 初始化编码器模块与引脚 
+    encoder_dir_init(ENCODER_2, ENCODER_2_A, ENCODER_2_B);                     // 初始化编码器模块与引脚 
     pit_ms_init(PIT, 100);
 	
 	//**********************总钻风初始化***********************
@@ -372,6 +379,17 @@ int main (void)
 				break;
 		}
 		//******************************菜单*******************************
+		
+		//*************************PID数据计算******************************
+		
+		PID_Calc(&Speed_PID,(float)(100-Speed_Real));
+		PID_Calc(&Direction_PID,Err_Sum());
+		pid_out=Speed_PID.output+Direction_PID.output;
+		
+		//*************************PID数据计算******************************
+		
+		duty+=pid_out;
+		
 		//******************************电机*******************************
 		if(0 <= duty)                                                           // 正转
         {
@@ -391,7 +409,7 @@ int main (void)
         }
 		//******************************电机*******************************
 		mt9v03x_finish_flag=0;
-		system_delay_ms(10);
+		system_delay_ms(50);
 	}
 }
 
@@ -408,6 +426,8 @@ void pit_handler (void)
 
     Speed_Right_Real = -encoder_get_count(ENCODER_2);                              // 获取编码器计数
     encoder_clear_count(ENCODER_2);                                             // 清空编码器计数
+	
+	Speed_Real = (Speed_Left_Real+Speed_Right_Real)/2;
 }
 // **************************** 代码区域 ****************************
 
