@@ -26,11 +26,29 @@ extern		int Longest_White_Column_Left[2];                                    //×
 extern		int Longest_White_Column_Right[2];                                   //×î³¤°×ÁÐ,[0]ÊÇ×î³¤°×ÁÐµÄ³¤¶È£¬Ò²¾ÍÊÇSearch_Stop_LineËÑË÷½ØÖ¹ÐÐ£¬[1¡¿ÊÇµÚÄ³ÁÐ
 extern		int Left_Lost_Flag[MT9V03X_H] ;                                      //×ó¶ªÏßÊý×é£¬¶ªÏßÖÃ1£¬Ã»¶ªÏßÖÃ0
 extern		int Right_Lost_Flag[MT9V03X_H];                                      //ÓÒ¶ªÏßÊý×é£¬¶ªÏßÖÃ1£¬Ã»¶ªÏßÖÃ0
+
+//***************************************Ê®×Ö¹ÕµãÊý¾Ý*********************************************
+extern		int Right_Down_Find;                                                 //ÓÒÏÂ¹ÕµãÐÐÊý
+extern		int Left_Down_Find;                                                  //×óÏÂ¹ÕµãÐÐÊý
+extern		int Right_Up_Find;													 //ÓÒÉÏ¹ÕµãÐÐÊý
+extern		int Left_Up_Find;                                                    //×óÉÏ¹ÕµãÐÐÊý
+//***************************************Ê®×Ö¹ÕµãÊý¾Ý*********************************************
+
+//***************************************ÔªËØ¼ì²â±êÖ¾*********************************************
+extern		uint8 Right_Island_Flag;                                             //ÓÒ»·µº±êÖ¾
+extern		uint8 Left_Island_Flag;                                              //×ó»·µº±êÖ¾
+extern		uint8 Island_State;                                                  //»·µº±êÖ¾
+extern		uint8 Cross_Flag;                                                    //Ê®×Ö±êÖ¾
+extern		uint8 Ramp_Flag;                                                     //ÆÂµÀ±êÖ¾
+extern		uint8 Straight_Flag;                                                 //Ö±µÀ±êÖ¾
+//***************************************ÔªËØ¼ì²â±êÖ¾*********************************************
                                                                                 
 int My_Adapt_Threshold(uint8*image,uint16 width, uint16 height);
 void Image_Binarization(int threshold);
 void Longest_White_Column();
 float Err_Sum(void);
+void Straight_Detect(float Err);
+void Cross_Detect();
 
 #endif
 

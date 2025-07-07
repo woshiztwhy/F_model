@@ -18,9 +18,20 @@ int Longest_White_Column_Left[2]; //最长白列,[0]是最长白列的长度，也就是Search_S
 int Longest_White_Column_Right[2];//最长白列,[0]是最长白列的长度，也就是Search_Stop_Line搜索截止行，[1】是第某列
 int Left_Lost_Flag[MT9V03X_H] ; //左丢线数组，丢线置1，没丢线置0
 int Right_Lost_Flag[MT9V03X_H]; //右丢线数组，丢线置1，没丢线置0
-uint8 Right_Island_Flag;
-uint8 Left_Island_Flag;
-uint8 Island_State;
+
+uint8 Right_Island_Flag=0;
+uint8 Left_Island_Flag=0;
+uint8 Island_State=0;
+uint8 Cross_Flag=0;
+uint8 Ramp_Flag=0;
+uint8 Straight_Flag=0;
+
+
+int Right_Down_Find;
+int Left_Down_Find;
+int Right_Up_Find;
+int Left_Up_Find;
+
 /*-------------------------------------------------------------------------------------------------------------------
   @brief     普通大津求阈值
   @param     image       图像数组
@@ -271,6 +282,13 @@ void Longest_White_Column()//最长白列巡线
 //    ips200_showint16(0,3, Longest_White_Column_Left[1]);//【1】是下标，第j列)
 }
 //**********************************************************************************
+/*-------------------------------------------------------------------------------------------------------------------
+  @brief     误差计算
+  @param     null
+  @return    误差
+  Sample     Err_Sum()；
+  @note      通过中线计算误差，加权来减小干扰
+-------------------------------------------------------------------------------------------------------------------*/
 //加权控制
 const uint8 Weight[MT9V03X_H]=
 {
@@ -296,4 +314,424 @@ float Err_Sum(void)
     }
     err=err/weight_count;
     return err;//注意此处，误差有正负，还有小数，注意数据类型（右负左正）
+}
+/*-------------------------------------------------------------------------------------------------------------------
+  @brief     直道检测
+  @param     null
+  @return    null
+  Sample     Straight_Detect(err)；
+  @note      利用最长白列，边界起始点，中线起始点，
+-------------------------------------------------------------------------------------------------------------------*/
+void Straight_Detect(float Err)
+{
+    Straight_Flag=0;
+    if(Search_Stop_Line>=65)//截止行很远
+    {
+        if(Boundry_Start_Left>=68&&Boundry_Start_Right>=65)//起始点靠下
+        {
+            if(-5<=Err&&Err<=5)//误差很小
+            {
+                Straight_Flag=1;//认为是直道
+            }
+        }
+    }
+}
+/*-------------------------------------------------------------------------------------------------------------------
+  @brief     找下面的两个拐点，供十字使用
+  @param     搜索的范围起点，终点
+  @return    修改两个全局变量
+             Right_Down_Find=0;
+             Left_Down_Find=0;
+  Sample     Find_Down_Point(int start,int end)
+  @note      运行完之后查看对应的变量，注意，没找到时对应变量将是0
+-------------------------------------------------------------------------------------------------------------------*/
+void Find_Down_Point(int start,int end)
+{
+    int i,t;
+    Right_Down_Find=0;
+    Left_Down_Find=0;
+    if(start<end)
+    {
+        t=start;
+        start=end;
+        end=t;
+    }
+    if(start>=MT9V03X_H-1-5)//下面5行数据不稳定，不能作为边界点来判断，舍弃
+        start=MT9V03X_H-1-5;
+    if(end<=MT9V03X_H-Search_Stop_Line)
+        end=MT9V03X_H-Search_Stop_Line;
+    if(end<=5)
+       end=5;
+    for(i=start;i>=end;i--)
+    {
+        if(Left_Down_Find==0&&//只找第一个符合条件的点
+           abs(Left_Line[i]-Left_Line[i+1])<=5&&//角点的阈值可以更改
+           abs(Left_Line[i+1]-Left_Line[i+2])<=5&&
+           abs(Left_Line[i+2]-Left_Line[i+3])<=5&&
+              (Left_Line[i]-Left_Line[i-2])>=8&&
+              (Left_Line[i]-Left_Line[i-3])>=15&&
+              (Left_Line[i]-Left_Line[i-4])>=15)
+        {
+            Left_Down_Find=i;//获取行数即可
+        }
+        if(Right_Down_Find==0&&//只找第一个符合条件的点
+           abs(Right_Line[i]-Right_Line[i+1])<=5&&//角点的阈值可以更改
+           abs(Right_Line[i+1]-Right_Line[i+2])<=5&&
+           abs(Right_Line[i+2]-Right_Line[i+3])<=5&&
+              (Right_Line[i]-Right_Line[i-2])<=-8&&
+              (Right_Line[i]-Right_Line[i-3])<=-15&&
+              (Right_Line[i]-Right_Line[i-4])<=-15)
+        {
+            Right_Down_Find=i;
+        }
+        if(Left_Down_Find!=0&&Right_Down_Find!=0)//两个找到就退出
+        {
+            break;
+        }
+    }
+}
+ 
+/*-------------------------------------------------------------------------------------------------------------------
+  @brief     找上面的两个拐点，供十字使用
+  @param     搜索的范围起点，终点
+  @return    修改两个全局变量
+             Left_Up_Find=0;
+             Right_Up_Find=0;
+  Sample     Find_Up_Point(int start,int end)
+  @note      运行完之后查看对应的变量，注意，没找到时对应变量将是0
+-------------------------------------------------------------------------------------------------------------------*/
+void Find_Up_Point(int start,int end)
+{
+    int i,t;
+    Left_Up_Find=0;
+    Right_Up_Find=0;
+    if(start<end)
+    {
+        t=start;
+        start=end;
+        end=t;
+    }
+    if(end<=MT9V03X_H-Search_Stop_Line)
+        end=MT9V03X_H-Search_Stop_Line;
+    if(end<=5)//及时最长白列非常长，也要舍弃部分点，防止数组越界
+        end=5;
+    if(start>=MT9V03X_H-1-5)//下面5行数据不稳定，不能作为边界点来判断，舍弃
+        start=MT9V03X_H-1-5;
+    for(i=start;i>=end;i--)
+    {
+        if(Left_Up_Find==0&&//只找第一个符合条件的点
+           abs(Left_Line[i]-Left_Line[i-1])<=5&&
+           abs(Left_Line[i-1]-Left_Line[i-2])<=5&&
+           abs(Left_Line[i-2]-Left_Line[i-3])<=5&&
+              (Left_Line[i]-Left_Line[i+2])>=8&&
+              (Left_Line[i]-Left_Line[i+3])>=15&&
+              (Left_Line[i]-Left_Line[i+4])>=15)
+        {
+            Left_Up_Find=i;//获取行数即可
+        }
+        if(Right_Up_Find==0&&//只找第一个符合条件的点
+           abs(Right_Line[i]-Right_Line[i-1])<=5&&//下面两行位置差不多
+           abs(Right_Line[i-1]-Right_Line[i-2])<=5&&
+           abs(Right_Line[i-2]-Right_Line[i-3])<=5&&
+              (Right_Line[i]-Right_Line[i+2])<=-8&&
+              (Right_Line[i]-Right_Line[i+3])<=-15&&
+              (Right_Line[i]-Right_Line[i+4])<=-15)
+        {
+            Right_Up_Find=i;//获取行数即可
+        }
+        if(Left_Up_Find!=0&&Right_Up_Find!=0)//下面两个找到就出去
+        {
+            break;
+        }
+    }
+    if(abs(Right_Up_Find-Left_Up_Find)>=30)//纵向撕裂过大，视为误判
+    {
+        Right_Up_Find=0;
+        Left_Up_Find=0;
+    }
+}
+/*-------------------------------------------------------------------------------------------------------------------
+  @brief     左补线
+  @param     补线的起点，终点
+  @return    null
+  Sample     Left_Add_Line(int x1,int y1,int x2,int y2);
+  @note      补的直接是边界，点最好是可信度高的,不要乱补
+-------------------------------------------------------------------------------------------------------------------*/
+void Left_Add_Line(int x1,int y1,int x2,int y2)//左补线,补的是边界
+{
+     int i,a1,a2;
+     int hx;
+     if(x1>=MT9V03X_W-1)//起始点位置校正，排除数组越界的可能
+        x1=MT9V03X_W-1;
+     else if(x1<=0)
+         x1=0;
+     if(y1>=MT9V03X_H-1)
+         y1=MT9V03X_H-1;
+     else if(y1<=0)
+         y1=0;
+     if(x2>=MT9V03X_W-1)
+         x2=MT9V03X_W-1;
+     else if(x2<=0)
+              x2=0;
+     if(y2>=MT9V03X_H-1)
+         y2=MT9V03X_H-1;
+     else if(y2<=0)
+              y2=0;
+     if(y1<y2)
+	 {
+		 a1=y1;
+		 a2=y2;
+	 }
+	 else
+	 {
+		 a1=y2;
+		 a2=y1;
+	 }
+     for(i=a1;i<=a2;i++)//根据斜率补线即可
+     {
+         hx=(i-y1)*(x2-x1)/(y2-y1)+x1;
+         if(hx>=MT9V03X_W)
+             hx=MT9V03X_W;
+         else if(hx<=0)
+             hx=0;
+         Left_Line[i]=hx;
+     }
+}
+/*-------------------------------------------------------------------------------------------------------------------
+  @brief     右补线
+  @param     补线的起点，终点
+  @return    null
+  Sample     Left_Add_Line(int x1,int y1,int x2,int y2);
+  @note      补的直接是边界，点最好是可信度高的,不要乱补
+-------------------------------------------------------------------------------------------------------------------*/
+void Right_Add_Line(int x1,int y1,int x2,int y2)//左补线,补的是边界
+{
+     int i,a1,a2;
+     int hx;
+     if(x1>=MT9V03X_W-1)//起始点位置校正，排除数组越界的可能
+        x1=MT9V03X_W-1;
+     else if(x1<=0)
+         x1=0;
+     if(y1>=MT9V03X_H-1)
+         y1=MT9V03X_H-1;
+     else if(y1<=0)
+         y1=0;
+     if(x2>=MT9V03X_W-1)
+         x2=MT9V03X_W-1;
+     else if(x2<=0)
+              x2=0;
+     if(y2>=MT9V03X_H-1)
+         y2=MT9V03X_H-1;
+     else if(y2<=0)
+              y2=0;
+     if(y1<y2)
+	 {
+		 a1=y1;
+		 a2=y2;
+	 }
+	 else
+	 {
+		 a1=y2;
+		 a2=y1;
+	 }
+     for(i=a1;i<=a2;i++)//根据斜率补线即可
+     {
+         hx=(i-y1)*(x2-x1)/(y2-y1)+x1;
+         if(hx>=MT9V03X_W)
+             hx=MT9V03X_W;
+         else if(hx<=0)
+             hx=0;
+         Right_Line[i]=hx;
+     }
+}
+/*-------------------------------------------------------------------------------------------------------------------
+  @brief     左边界延长
+  @param     延长起始行数，延长到某行
+  @return    null
+  Sample     Lengthen_Right_Boundry(int start,int end)；
+  @note      从起始点向上找3个点，算出斜率，向下延长，直至结束点
+-------------------------------------------------------------------------------------------------------------------*/
+void Lengthen_Left_Boundry(int start,int end)
+{
+    int i,t;
+    float k=0;
+    if(start>=MT9V03X_H-1)//起始点位置校正，排除数组越界的可能
+        start=MT9V03X_H-1;
+    else if(start<=0)
+        start=0;
+    if(end>=MT9V03X_H-1)
+        end=MT9V03X_H-1;
+    else if(end<=0)
+        end=0;
+ 
+    if(start<=5 && start <= end)//因为需要在开始点向上找3个点，对于起始点过于靠上，不能做延长，只能直接连线
+    {
+        Left_Add_Line(Left_Line[start],start,Left_Line[end],end);
+    }
+    else
+    {
+        k=(float)(Left_Line[start]-Left_Line[start-4])/5.0;//这里的k是1/斜率
+        if(start<=end)
+        {
+            for(i=start;i<=end;i++)
+            {
+                Left_Line[i]=(int)(i-start)*k+Left_Line[start];//(x=(y-y1)*k+x1),点斜式变形
+                if(Left_Line[i]>=MT9V03X_W-1)
+                {
+                    Left_Line[i]=MT9V03X_W-1;
+                }
+                else if(Left_Line[i]<=0)
+                {
+                    Left_Line[i]=0;
+                }
+            }
+        }
+        else
+        {
+            for(i=end;i<=start;i++)
+            {
+                Left_Line[i]=(int)(i-start)*k+Left_Line[start];//(x=(y-y1)*k+x1),点斜式变形
+                if(Left_Line[i]>=MT9V03X_W-1)
+                {
+                    Left_Line[i]=MT9V03X_W-1;
+                }
+                else if(Left_Line[i]<=0)
+                {
+                    Left_Line[i]=0;
+                }
+            }
+        }
+        
+    }
+}
+
+/*-------------------------------------------------------------------------------------------------------------------
+  @brief     右边界延长
+  @param     延长起始行数，延长到某行
+  @return    null
+  Sample     Lengthen_Right_Boundry(int start,int end)；
+  @note      从起始点向上找3个点，算出斜率，向下延长，直至结束点
+-------------------------------------------------------------------------------------------------------------------*/
+void Lengthen_Right_Boundry(int start,int end)
+{
+    int i,t;
+    float k=0;
+    if(start>=MT9V03X_H-1)//起始点位置校正，排除数组越界的可能
+        start=MT9V03X_H-1;
+    else if(start<=0)
+        start=0;
+    if(end>=MT9V03X_H-1)
+        end=MT9V03X_H-1;
+    else if(end<=0)
+        end=0;
+ 
+    if(start<=5 && start <= end)//因为需要在开始点向上找3个点，对于起始点过于靠上，不能做延长，只能直接连线
+    {
+        Right_Add_Line(Right_Line[start],start,Right_Line[end],end);
+    }
+    else
+    {
+        k=(float)(Right_Line[start]-Right_Line[start-4])/5.0;//这里的k是1/斜率
+        if(start<=end)
+        {
+            for(i=start;i<=end;i++)
+            {
+                Right_Line[i]=(int)(i-start)*k+Right_Line[start];//(x=(y-y1)*k+x1),点斜式变形
+                if(Right_Line[i]>=MT9V03X_W-1)
+                {
+                    Right_Line[i]=MT9V03X_W-1;
+                }
+                else if(Right_Line[i]<=0)
+                {
+                    Right_Line[i]=0;
+                }
+            }
+        }
+        else
+        {
+            for(i=end;i<=start;i++)
+            {
+                Right_Line[i]=(int)(i-start)*k+Right_Line[start];//(x=(y-y1)*k+x1),点斜式变形
+                if(Right_Line[i]>=MT9V03X_W-1)
+                {
+                    Right_Line[i]=MT9V03X_W-1;
+                }
+                else if(Right_Line[i]<=0)
+                {
+                    Right_Line[i]=0;
+                }
+            }
+        }
+        
+    }
+}
+/*-------------------------------------------------------------------------------------------------------------------
+  @brief     十字检测
+  @param     null
+  @return    null
+  Sample     Cross_Detect()；
+  @note      利用拐点补线，检测十字
+-------------------------------------------------------------------------------------------------------------------*/
+void Cross_Detect()
+{
+    int down_search_start=0;//下角点搜索开始行
+    Cross_Flag=0;
+    if(Island_State==0&&Ramp_Flag==0)//与环岛互斥开
+    {
+        Left_Up_Find=0;
+        Right_Up_Find=0;
+        if(Both_Lost_Time>=10)//十字必定有双边丢线，在有双边丢线的情况下再开始找角点
+        {
+            Find_Up_Point( MT9V03X_H-1, 0 );
+            if(Left_Up_Find==0&&Right_Up_Find==0)//只要没有同时找到两个上点，直接结束
+            {
+                return;
+            }
+        }
+        if(Left_Up_Find!=0&&Right_Up_Find!=0)//找到两个上点，就认为找到十字了
+        {
+            Cross_Flag=1;//确定对应标志位，便于各元素互斥掉
+            down_search_start=Left_Up_Find>Right_Up_Find?Left_Up_Find:Right_Up_Find;//用两个上拐点坐标靠下者作为下点的搜索上限
+            Find_Down_Point(MT9V03X_H-5,down_search_start+2);//在上拐点下2行作为下角点的截止行
+            if(Left_Down_Find<=Left_Up_Find)
+            {
+                Left_Down_Find=0;//下点不可能比上点还靠上
+            }
+            if(Right_Down_Find<=Right_Up_Find)
+            {
+                Right_Down_Find=0;//下点不可能比上点还靠上
+            }
+            if(Left_Down_Find!=0&&Right_Down_Find!=0)
+            {//四个点都在，无脑连线，这种情况显然很少
+                Left_Add_Line (Left_Line [Left_Up_Find ],Left_Up_Find ,Left_Line [Left_Down_Find ] ,Left_Down_Find);
+                Right_Add_Line(Right_Line[Right_Up_Find],Right_Up_Find,Right_Line[Right_Down_Find],Right_Down_Find);
+            }
+            else if(Left_Down_Find==0&&Right_Down_Find!=0)//11//这里使用的是斜率补线
+            {//三个点                                     //01
+                Lengthen_Left_Boundry(Left_Up_Find-1,MT9V03X_H-1);
+                Right_Add_Line(Right_Line[Right_Up_Find],Right_Up_Find,Right_Line[Right_Down_Find],Right_Down_Find);
+            }
+            else if(Left_Down_Find!=0&&Right_Down_Find==0)//11
+            {//三个点                                      //10
+                Left_Add_Line (Left_Line [Left_Up_Find ],Left_Up_Find ,Left_Line [Left_Down_Find ] ,Left_Down_Find);
+                Lengthen_Right_Boundry(Right_Up_Find-1,MT9V03X_H-1);
+            }
+            else if(Left_Down_Find==0&&Right_Down_Find==0)//11
+            {//就俩上点                                    //00
+                Lengthen_Left_Boundry (Left_Up_Find-1,MT9V03X_H-1);
+                Lengthen_Right_Boundry(Right_Up_Find-1,MT9V03X_H-1);
+            }
+        }
+        else
+        {
+            Cross_Flag=0;
+        }
+    }
+    //角点相关变量，debug使用
+    //ips200_showuint8(0,12,Cross_Flag);
+//    ips200_showuint8(0,13,Island_State);
+//    ips200_showuint8(50,12,Left_Up_Find);
+//    ips200_showuint8(100,12,Right_Up_Find);
+//    ips200_showuint8(50,13,Left_Down_Find);
+//    ips200_showuint8(100,13,Right_Down_Find);
 }

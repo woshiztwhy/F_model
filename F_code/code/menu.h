@@ -10,6 +10,7 @@ typedef enum
 	I_mode,
 	D_m,
 	M_duty,
+	M_set_speed,
 	Grey_Im,
 	Binary_Im,
 	x,

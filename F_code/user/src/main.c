@@ -164,6 +164,7 @@ int main (void)
 			Threshold=My_Adapt_Threshold(mt9v03x_image[0],MT9V03X_W, MT9V03X_H);   //大津算阈值
 			Image_Binarization(Threshold);                                         //图像二值化
 			Longest_White_Column();                                                //最长白线法寻边线
+			Cross_Detect();                                                        //十字检测补线
 			mt9v03x_finish_flag=0;                                                 //标志位清除
 		}
 		//************************图像处理****************************
@@ -253,7 +254,7 @@ int main (void)
 						switch(current_p)
 						{
 							case 0://duty
-								current_state=M_duty;
+								current_state=M_set_speed;
 //								motor_duty_menu_init(duty);
 //								current_p=0;
 								break;
