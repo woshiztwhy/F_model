@@ -92,6 +92,11 @@
 
 #define PIT                         (TIM6_PIT )                                 // 使用的周期中断编号 如果修改 需要同步对应修改周期中断编号与 isr.c 中的调用
 
+#define FLASH_SECTION_INDEX       (127)                                         // 存储数据用的扇区 倒数第一个扇区
+#define FLASH_PAGE_INDEX          (3)                                           // 存储数据用的页码 倒数第一个页码
+
+void flash_data_buffer_printf (void);
+
 int Left_duty = 0;
 int Right_duty = 0;
 bool dir = true;
@@ -99,12 +104,12 @@ int Threshold = 0;
 int16 Speed_Left_Real=0;
 int16 Speed_Right_Real=0;
 int16 Speed_Real=0;
-int16 Speed_Set=400;
+int16 Speed_Set=100;
 
 PID Direction_PID={0};
 PID Speed_PID={0};
 
-uint8 time_count=0;
+uint32 time_count=0;
 
 fsm_State current_state=M_m;
 uint8 current_p=0;
@@ -129,11 +134,24 @@ int main (void)
 	
 	encoder_quad_init(ENCODER_1, ENCODER_1_A, ENCODER_1_B);                     // 初始化编码器模块与引脚 
     encoder_quad_init(ENCODER_2, ENCODER_2_A, ENCODER_2_B);                     // 初始化编码器模块与引脚 
-    pit_ms_init(PIT, 100);
+    pit_ms_init(PIT, 10);
 	
 	PID_Init(&Direction_PID,0,0,0,8,10);
-	PID_Init(&Speed_PID,0,0,0,8,10);
+	PID_Init(&Speed_PID,0,0,0,1,10);
 	
+	//*********************flash数据读入***********************
+//	if(flash_check(FLASH_SECTION_INDEX, FLASH_PAGE_INDEX))                      // 判断是否有数据
+//    {
+//        flash_erase_page(FLASH_SECTION_INDEX, FLASH_PAGE_INDEX);                // 擦除这一页
+//    }
+	flash_buffer_clear();    
+	flash_read_page_to_buffer(FLASH_SECTION_INDEX, FLASH_PAGE_INDEX);           // 将数据从 flash 读取到缓冲区
+	Speed_PID.kp=flash_union_buffer[0].float_type;
+	Speed_PID.ki=flash_union_buffer[1].float_type;
+	Speed_PID.kd=flash_union_buffer[2].float_type;
+	
+	printf("\r\n float_type : %f", flash_union_buffer[0].float_type);
+	//*********************flash数据读入***********************
 	//**********************总钻风初始化***********************
 	ips200_show_string(0, 0, "mt9v03x init.");
     while(1)
@@ -198,6 +216,8 @@ int main (void)
 		{
 			//***********************Main menu****************************
 			case M_m:
+				pwm_set_duty(PWM_L, 0);
+				pwm_set_duty(PWM_R, 0);
 				switch(current_event)
 				{
 					case up:
@@ -433,8 +453,8 @@ int main (void)
 				switch(current_event)
 				{
 					case esc:
-						current_state=I_mode;
-						image_mode_menu_init();
+						current_state=M_m;
+						main_menu_init();
 						ips200_show_string(0,16,"->");
 						current_p=0;
 						break;
@@ -487,34 +507,50 @@ int main (void)
 				}
 				break;	
 			//***********************Speed PID*****************************
+			//***********************速度p调节******************************
 			case Speed_p:
 				switch(current_event)
 				{
 					case up:
-						Speed_PID.kp+=0.01;
+						Speed_PID.kp+=0.001;
 						motor_speed_pid_init(&Speed_PID);
 						break;
 					case down:
-						Speed_PID.kp-=0.01;
+						Speed_PID.kp-=0.001;
 						motor_speed_pid_init(&Speed_PID);
 						break;
 					case esc:
-						current_state=M_m;
-						main_menu_init();
+						current_state=S_PID_State;
+						motor_speed_pid_init(&Speed_PID);
 						ips200_show_string(0,16,"->");
 						current_p=0;
+						break;
+					case enter:
+						//***************************flash 写入****************************
+						flash_buffer_clear();
+						flash_union_buffer[0].float_type=Speed_PID.kp;
+						flash_union_buffer[1].float_type=Speed_PID.ki;
+						flash_union_buffer[2].float_type=Speed_PID.kd;
+						flash_write_page_from_buffer(FLASH_SECTION_INDEX, FLASH_PAGE_INDEX);        // 向指定 Flash 扇区的页码写入缓冲区数据
+						//***************************flash 写入****************************
 						break;
 					default:
 						break;
 				}
 				break;
+			//***********************速度p调节******************************
 			default:
 				break;
+			
 		}
 		//******************************菜单*******************************
-		
+//		flash_buffer_clear();
+//		flash_union_buffer[0].float_type=0.01;
+//		flash_union_buffer[1].float_type=0;
+//		flash_union_buffer[2].float_type=0;
+//		flash_write_page_from_buffer(FLASH_SECTION_INDEX, FLASH_PAGE_INDEX);
 		mt9v03x_finish_flag=0;
-		system_delay_ms(50);
+		system_delay_ms(5);
 	}
 }
 
@@ -526,7 +562,7 @@ int main (void)
 //-------------------------------------------------------------------------------------------------------------------
 void pit_handler (void)
 {
-    Speed_Left_Real = -encoder_get_count(ENCODER_1);                              // 获取编码器计数
+    Speed_Left_Real = encoder_get_count(ENCODER_1);                              // 获取编码器计数
     encoder_clear_count(ENCODER_1);                                             // 清空编码器计数
 
     Speed_Right_Real = -encoder_get_count(ENCODER_2);                              // 获取编码器计数
@@ -536,25 +572,25 @@ void pit_handler (void)
 	
 	//*************************PID数据计算******************************
 		
-	PID_Calc(&Speed_PID,(float)(100-Speed_Real));
+	PID_Calc(&Speed_PID,(float)(Speed_Set-Speed_Real));
 	PID_Calc(&Direction_PID,Err_Sum());
 	
 	//*************************PID数据计算******************************
 	Left_duty=Left_duty+Speed_PID.output-Direction_PID.output;
 	Right_duty=Left_duty+Speed_PID.output+Direction_PID.output;
 	
-//	if(current_state==D_m)           //定时关闭电机
-//	{
-//		time_count++;
-//		if(time_count>50)
-//		{
-//			current_state=M_m;
-//			main_menu_init();
-//			ips200_show_string(0,16,"->");
-//			current_p=0;
-//			time_count=0;
-//		}
-//	}                             
+	if(current_state==D_m)           //定时关闭电机
+	{
+		time_count++;
+		if(time_count>300)
+		{
+			current_state=M_m;
+			main_menu_init();
+			ips200_show_string(0,16,"->");
+			current_p=0;
+			time_count=0;
+		}
+	}                             
 }  
 // **************************** 代码区域 ****************************
 

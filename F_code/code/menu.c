@@ -58,11 +58,11 @@ void motor_speed_pid_init(PID *pid)
 	ips200_clear();
 	ips200_show_string(0,0,"Speed PID:");
 	ips200_show_string(32,16,"P:");
-	ips200_show_float(64,16,pid->kp,1,2);
+	ips200_show_float(64,16,pid->kp,1,3);
 	ips200_show_string(32,32,"I:");
-	ips200_show_float(64,32,pid->ki,1,2);
+	ips200_show_float(64,32,pid->ki,1,3);
 	ips200_show_string(32,48,"D:");
-	ips200_show_float(64,48,pid->ki,1,2);
+	ips200_show_float(64,48,pid->ki,1,3);
 }
 
 void departure_mode_init(void)
