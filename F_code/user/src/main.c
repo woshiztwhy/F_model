@@ -99,10 +99,15 @@ int Threshold = 0;
 int16 Speed_Left_Real=0;
 int16 Speed_Right_Real=0;
 int16 Speed_Real=0;
-int16 Speed_Set=100;
+int16 Speed_Set=400;
 
 PID Direction_PID={0};
 PID Speed_PID={0};
+
+uint8 time_count=0;
+
+fsm_State current_state=M_m;
+uint8 current_p=0;
 
 int main (void)
 {
@@ -122,8 +127,8 @@ int main (void)
 	
 	key_init(10); 
 	
-	encoder_dir_init(ENCODER_1, ENCODER_1_A, ENCODER_1_B);                     // 初始化编码器模块与引脚 
-    encoder_dir_init(ENCODER_2, ENCODER_2_A, ENCODER_2_B);                     // 初始化编码器模块与引脚 
+	encoder_quad_init(ENCODER_1, ENCODER_1_A, ENCODER_1_B);                     // 初始化编码器模块与引脚 
+    encoder_quad_init(ENCODER_2, ENCODER_2_A, ENCODER_2_B);                     // 初始化编码器模块与引脚 
     pit_ms_init(PIT, 100);
 	
 	PID_Init(&Direction_PID,0,0,0,8,10);
@@ -150,12 +155,6 @@ int main (void)
 	main_menu_init();
 	ips200_show_string(0,16,"->");
 	
-	uint16 loop = 0;
-	
-	fsm_State current_state=M_m;
-	
-	uint8 current_p=0;
-	
     while(1)
 	{
 		//************************图像处理****************************
@@ -170,6 +169,7 @@ int main (void)
 		//************************图像处理****************************
 		fsm_Event current_event=no_matter;
 		int num=menu_num(current_state);
+		
 		//************************按键扫描****************************
 		key_scanner();
 		if(key_get_state(KEY_1) == KEY_SHORT_PRESS&&KEY_LONG_PRESS)
@@ -219,7 +219,7 @@ int main (void)
 								ips200_show_string(0,16,"->");
 								current_p=0;
 								break;
-							case 1:
+							case 1://Image mode
 								current_state=I_mode;
 								image_mode_menu_init();
 								ips200_show_string(0,16,"->");
@@ -227,6 +227,7 @@ int main (void)
 								break;
 							case 2:
 								current_state=D_m;
+								departure_mode_init();
 								break;
 							default:
 								break;
@@ -253,13 +254,19 @@ int main (void)
 					case enter:
 						switch(current_p)
 						{
-							case 0://duty
-								current_state=M_set_speed;
-//								motor_duty_menu_init(duty);
-//								current_p=0;
+							case 0:
+								current_state=Dir_PID_State;
 								break;
 							case 1:
-								current_state=y;
+								current_state=S_PID_State;
+								motor_speed_pid_init(&Speed_PID);
+								ips200_show_string(0,16,"->");
+								current_p=0;
+								break;
+							case 2:
+								current_state=M_set_speed;
+								motor_set_speed_menu_init(Speed_Set);
+								current_p=0;
 								break;
 							default:
 								break;
@@ -276,29 +283,29 @@ int main (void)
 				}
 				break;
 			//*******************Motor Param menu**************************
-			//**********************Motor Duty*****************************
-//			case M_duty:
-//				switch(current_event)
-//				{
-//					case up:
-//						duty=(duty+100+1)%200-100;
-//						motor_duty_menu_init(duty);
-//						break;
-//					case down:
-//						duty=(duty+100-1)%200-100;
-//						motor_duty_menu_init(duty);
-//						break;
-//					case esc:
-//						current_state=M_Param;
-//						motor_param_menu_init();
-//						ips200_show_string(0,16,"->");
-//						current_p=0;
-//						break;
-//					default:
-//						break;
-//				}
-//				break;
-			//**********************Motor Duty*****************************
+			//*******************Motor Set Speed***************************
+			case M_duty:
+				switch(current_event)
+				{
+					case up:
+						Speed_Set++;
+						motor_set_speed_menu_init(Speed_Set);
+						break;
+					case down:
+						Speed_Set--;
+						motor_set_speed_menu_init(Speed_Set);
+						break;
+					case esc:
+						current_state=M_Param;
+						motor_param_menu_init();
+						ips200_show_string(0,16,"->");
+						current_p=0;
+						break;
+					default:
+						break;
+				}
+				break;
+			//*******************Motor Set Speed***************************
 			//**********************Image Mode*****************************
 			case I_mode:
 				switch(current_event)
@@ -364,6 +371,8 @@ int main (void)
 				for(int i=0;i<MT9V03X_H;i++)
 				{
 					ips200_draw_point((Left_Line[i]+Right_Line[i])>>1,i,RGB565_RED);
+					ips200_draw_point(Left_Line[i],i,RGB565_RED);
+					ips200_draw_point(Right_Line[i],i ,RGB565_RED);
 				}
 				switch(current_event)
 				{
@@ -378,43 +387,132 @@ int main (void)
 				}
 				break;		
 			//*********************Binary image****************************
+			//********************Depature  mode***************************
+			case D_m:
+				ips200_show_int(48,16,Speed_Real,4);
+				ips200_show_float(54,48,Speed_PID.output,4,4);
+				//******************************电机*******************************
+				if(Left_duty>MAX_DUTY)
+				{
+					Left_duty=MAX_DUTY;
+				}
+				if(Right_duty>MAX_DUTY)
+				{
+					Right_duty=MAX_DUTY;
+				}
+				if(Left_duty<-MAX_DUTY)
+				{
+					Left_duty=-MAX_DUTY;
+				}
+				if(Right_duty<-MAX_DUTY)
+				{
+					Right_duty=-MAX_DUTY;
+				}
+			    if(0 <= Left_duty)                                                           // 正转
+			    {
+			        gpio_set_level(DIR_L, GPIO_HIGH);                                   // DIR输出高电平
+			        pwm_set_duty(PWM_L, Left_duty * (PWM_DUTY_MAX / 100));              // 计算占空比
+			    }
+			    else                                                                    // 反转
+			    {
+			        gpio_set_level(DIR_L, GPIO_LOW);                                    // DIR输出低电平
+			        pwm_set_duty(PWM_L, (-Left_duty) * (PWM_DUTY_MAX / 100));                // 计算占空比
+			    }
+			    
+			    if(0 <= Right_duty)                                                           // 正转
+			    {
+			        gpio_set_level(DIR_R, GPIO_HIGH);                                   // DIR输出高电平
+			        pwm_set_duty(PWM_R, Right_duty * (PWM_DUTY_MAX / 100));              // 计算占空比
+			    }
+			    else                                                                    // 反转
+			    {
+			        gpio_set_level(DIR_R, GPIO_LOW);                                    // DIR输出低电平
+			        pwm_set_duty(PWM_R, (-Right_duty) * (PWM_DUTY_MAX / 100));                // 计算占空比
+			    }
+			    //******************************电机*******************************
+				switch(current_event)
+				{
+					case esc:
+						current_state=I_mode;
+						image_mode_menu_init();
+						ips200_show_string(0,16,"->");
+						current_p=0;
+						break;
+					default:
+						break;
+				}
+				break;
+			//********************Depature  mode***************************
+			//***********************Speed PID*****************************
+			case S_PID_State:
+				switch(current_event)
+				{
+					case up:
+						current_p=(current_p+num-1)%num;
+						motor_speed_pid_init(&Speed_PID);
+						ips200_show_string(0,(current_p+1)*16,"->");
+						break;
+					case down:
+						current_p=(current_p+1)%num;
+						motor_speed_pid_init(&Speed_PID);
+						ips200_show_string(0,(current_p+1)*16,"->");
+						break;
+					case enter:
+						switch(current_p)
+						{
+							case 0:                
+								current_state=Speed_p;
+								current_p=0;
+								break;
+							case 1:                
+								current_state=Speed_i;
+								current_p=0;
+								break;
+							case 2:                
+								current_state=Speed_d;
+								current_p=0;
+								break;
+							default:
+								break;
+						}
+						break;
+					case esc:
+						current_state=M_Param;
+						motor_param_menu_init();
+						ips200_show_string(0,16,"->");
+						current_p=0;
+						break;
+					default:
+						break;
+				}
+				break;	
+			//***********************Speed PID*****************************
+			case Speed_p:
+				switch(current_event)
+				{
+					case up:
+						Speed_PID.kp+=0.01;
+						motor_speed_pid_init(&Speed_PID);
+						break;
+					case down:
+						Speed_PID.kp-=0.01;
+						motor_speed_pid_init(&Speed_PID);
+						break;
+					case esc:
+						current_state=M_m;
+						main_menu_init();
+						ips200_show_string(0,16,"->");
+						current_p=0;
+						break;
+					default:
+						break;
+				}
+				break;
 			default:
 				break;
 		}
 		//******************************菜单*******************************
 		
-		//*************************PID数据计算******************************
-		
-		PID_Calc(&Speed_PID,(float)(100-Speed_Real));
-		PID_Calc(&Direction_PID,Err_Sum());
-		
-		//*************************PID数据计算******************************
-		Left_duty=Left_duty+Speed_PID.output-Direction_PID.output;
-		Right_duty=Left_duty+Speed_PID.output+Direction_PID.output;
-		
-		//******************************电机*******************************
-		if(0 <= Left_duty)                                                           // 正转
-        {
-            gpio_set_level(DIR_L, GPIO_HIGH);                                   // DIR输出高电平
-            pwm_set_duty(PWM_L, Left_duty * (PWM_DUTY_MAX / 100));              // 计算占空比
-        }
-        else                                                                    // 反转
-        {
-            gpio_set_level(DIR_L, GPIO_LOW);                                    // DIR输出低电平
-            pwm_set_duty(PWM_L, (-Left_duty) * (PWM_DUTY_MAX / 100));                // 计算占空比
-        }
-		
-		if(0 <= Right_duty)                                                           // 正转
-        {
-            gpio_set_level(DIR_R, GPIO_HIGH);                                   // DIR输出高电平
-            pwm_set_duty(PWM_R, Right_duty * (PWM_DUTY_MAX / 100));              // 计算占空比
-        }
-        else                                                                    // 反转
-        {
-            gpio_set_level(DIR_R, GPIO_LOW);                                    // DIR输出低电平
-            pwm_set_duty(PWM_R, (-Right_duty) * (PWM_DUTY_MAX / 100));                // 计算占空比
-        }
-		//******************************电机*******************************
 		mt9v03x_finish_flag=0;
 		system_delay_ms(50);
 	}
@@ -435,7 +533,29 @@ void pit_handler (void)
     encoder_clear_count(ENCODER_2);                                             // 清空编码器计数
 	
 	Speed_Real = (Speed_Left_Real+Speed_Right_Real)/2;
-}
+	
+	//*************************PID数据计算******************************
+		
+	PID_Calc(&Speed_PID,(float)(100-Speed_Real));
+	PID_Calc(&Direction_PID,Err_Sum());
+	
+	//*************************PID数据计算******************************
+	Left_duty=Left_duty+Speed_PID.output-Direction_PID.output;
+	Right_duty=Left_duty+Speed_PID.output+Direction_PID.output;
+	
+//	if(current_state==D_m)           //定时关闭电机
+//	{
+//		time_count++;
+//		if(time_count>50)
+//		{
+//			current_state=M_m;
+//			main_menu_init();
+//			ips200_show_string(0,16,"->");
+//			current_p=0;
+//			time_count=0;
+//		}
+//	}                             
+}  
 // **************************** 代码区域 ****************************
 
 // *************************** 例程常见问题说明 ***************************
