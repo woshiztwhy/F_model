@@ -248,6 +248,7 @@ int main (void)
 							case 2:
 								current_state=D_m;
 								departure_mode_init();
+								system_delay_ms(1500);
 								break;
 							default:
 								break;
@@ -409,6 +410,14 @@ int main (void)
 			//*********************Binary image****************************
 			//********************Depature  mode***************************
 			case D_m:
+				if(Longest_White_Column_Left[0]<=MT9V03X_H/10)
+				{
+					current_state=M_m;
+					main_menu_init();
+					ips200_show_string(0,16,"->");
+					current_p=0;
+					break;
+				}
 				ips200_show_int(48,16,Speed_Real,4);
 				ips200_show_float(54,48,Speed_PID.output,4,4);
 				//******************************电机*******************************
@@ -529,8 +538,6 @@ int main (void)
 						//***************************flash 写入****************************
 						flash_buffer_clear();
 						flash_union_buffer[0].float_type=Speed_PID.kp;
-						flash_union_buffer[1].float_type=Speed_PID.ki;
-						flash_union_buffer[2].float_type=Speed_PID.kd;
 						flash_write_page_from_buffer(FLASH_SECTION_INDEX, FLASH_PAGE_INDEX);        // 向指定 Flash 扇区的页码写入缓冲区数据
 						//***************************flash 写入****************************
 						break;
@@ -539,16 +546,71 @@ int main (void)
 				}
 				break;
 			//***********************速度p调节******************************
+			//***********************速度i调节******************************
+			case Speed_i:
+				switch(current_event)
+				{
+					case up:
+						Speed_PID.ki+=0.001;
+						motor_speed_pid_init(&Speed_PID);
+						break;
+					case down:
+						Speed_PID.ki-=0.001;
+						motor_speed_pid_init(&Speed_PID);
+						break;
+					case esc:
+						current_state=S_PID_State;
+						motor_speed_pid_init(&Speed_PID);
+						ips200_show_string(0,16,"->");
+						current_p=0;
+						break;
+					case enter:
+						//***************************flash 写入****************************
+						flash_buffer_clear();
+						flash_union_buffer[1].float_type=Speed_PID.ki;
+						flash_write_page_from_buffer(FLASH_SECTION_INDEX, FLASH_PAGE_INDEX);        // 向指定 Flash 扇区的页码写入缓冲区数据
+						//***************************flash 写入****************************
+						break;
+					default:
+						break;
+				}
+				break;
+			//***********************速度i调节******************************
+			//***********************速度d调节******************************
+			case Speed_d:
+				switch(current_event)
+				{
+					case up:
+						Speed_PID.kd+=0.001;
+						motor_speed_pid_init(&Speed_PID);
+						break;
+					case down:
+						Speed_PID.kd-=0.001;
+						motor_speed_pid_init(&Speed_PID);
+						break;
+					case esc:
+						current_state=S_PID_State;
+						motor_speed_pid_init(&Speed_PID);
+						ips200_show_string(0,16,"->");
+						current_p=0;
+						break;
+					case enter:
+						//***************************flash 写入****************************
+						flash_buffer_clear();
+						flash_union_buffer[2].float_type=Speed_PID.kd;
+						flash_write_page_from_buffer(FLASH_SECTION_INDEX, FLASH_PAGE_INDEX);        // 向指定 Flash 扇区的页码写入缓冲区数据
+						//***************************flash 写入****************************
+						break;
+					default:
+						break;
+				}
+				break;
+			//***********************速度d调节******************************
 			default:
 				break;
 			
 		}
 		//******************************菜单*******************************
-//		flash_buffer_clear();
-//		flash_union_buffer[0].float_type=0.01;
-//		flash_union_buffer[1].float_type=0;
-//		flash_union_buffer[2].float_type=0;
-//		flash_write_page_from_buffer(FLASH_SECTION_INDEX, FLASH_PAGE_INDEX);
 		mt9v03x_finish_flag=0;
 		system_delay_ms(5);
 	}

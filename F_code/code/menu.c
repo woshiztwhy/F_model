@@ -41,7 +41,7 @@ void motor_param_menu_init(void)
 void motor_set_speed_menu_init(int set_speed)
 {
 	ips200_clear();
-	ips200_show_string(0,0,"Motor set_speed:");
+	ips200_show_string(0,0,"Set_speed:");
 	ips200_show_int(96,0,set_speed,4);
 }
 
