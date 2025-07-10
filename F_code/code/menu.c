@@ -13,6 +13,8 @@ uint8 menu_num(fsm_State current_menu)//获取选项数
 			return 2;
 		case S_PID_State:
 			return 3;
+		case Dir_PID_State:
+			return 3;
 		default:
 			break;
 	}
@@ -57,6 +59,18 @@ void motor_speed_pid_init(PID *pid)
 {
 	ips200_clear();
 	ips200_show_string(0,0,"Speed PID:");
+	ips200_show_string(32,16,"P:");
+	ips200_show_float(64,16,pid->kp,1,3);
+	ips200_show_string(32,32,"I:");
+	ips200_show_float(64,32,pid->ki,1,3);
+	ips200_show_string(32,48,"D:");
+	ips200_show_float(64,48,pid->ki,1,3);
+}
+
+void motor_dir_pid_init(PID *pid)
+{
+	ips200_clear();
+	ips200_show_string(0,0,"Dir PID:");
 	ips200_show_string(32,16,"P:");
 	ips200_show_float(64,16,pid->kp,1,3);
 	ips200_show_string(32,32,"I:");

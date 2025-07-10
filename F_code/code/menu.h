@@ -51,6 +51,7 @@ void image_mode_menu_init(void);
 void motor_set_speed_menu_init(int set_speed);
 void motor_speed_pid_init(PID *pid);
 void departure_mode_init(void);
+void motor_dir_pid_init(PID *pid);
 
 
 #endif

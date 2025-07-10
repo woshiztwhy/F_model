@@ -285,8 +285,9 @@ int main (void)
 								current_p=0;
 								break;
 							case 2:
-								current_state=M_set_speed;
-								motor_set_speed_menu_init(Speed_Set);
+								current_state=Dir_PID_State;
+								motor_dir_pid_init(&Direction_PID);
+								ips200_show_string(0,16,"->");
 								current_p=0;
 								break;
 							default:
@@ -606,6 +607,140 @@ int main (void)
 				}
 				break;
 			//***********************速度d调节******************************
+			//************************Dir PID*****************************
+			case Dir_PID_State:
+				switch(current_event)
+				{
+					case up:
+						current_p=(current_p+num-1)%num;
+						motor_dir_pid_init(&Direction_PID);
+						ips200_show_string(0,(current_p+1)*16,"->");
+						break;
+					case down:
+						current_p=(current_p+1)%num;
+						motor_dir_pid_init(&Direction_PID);
+						ips200_show_string(0,(current_p+1)*16,"->");
+						break;
+					case enter:
+						switch(current_p)
+						{
+							case 0:                
+								current_state=Dir_p;
+								current_p=0;
+								break;
+							case 1:                
+								current_state=Dir_i;
+								current_p=0;
+								break;
+							case 2:                
+								current_state=Dir_d;
+								current_p=0;
+								break;
+							default:
+								break;
+						}
+						break;
+					case esc:
+						current_state=M_Param;
+						motor_param_menu_init();
+						ips200_show_string(0,16,"->");
+						current_p=0;
+						break;
+					default:
+						break;
+				}
+				break;	
+			//************************Dir PID*****************************
+			//***********************方向p调节******************************
+			case Dir_p:
+				switch(current_event)
+				{
+					case up:
+						Direction_PID.kp+=0.001;
+						motor_dir_pid_init(&Direction_PID);
+						break;
+					case down:
+						Direction_PID.kp-=0.001;
+						motor_dir_pid_init(&Direction_PID);
+						break;
+					case esc:
+						current_state=Dir_PID_State;
+						motor_dir_pid_init(&Direction_PID);
+						ips200_show_string(0,16,"->");
+						current_p=0;
+						break;
+					case enter:
+						//***************************flash 写入****************************
+						flash_buffer_clear();
+						flash_union_buffer[3].float_type=Direction_PID.kp;
+						flash_write_page_from_buffer(FLASH_SECTION_INDEX, FLASH_PAGE_INDEX);        // 向指定 Flash 扇区的页码写入缓冲区数据
+						//***************************flash 写入****************************
+						break;
+					default:
+						break;
+				}
+				break;
+			//***********************方向p调节******************************
+			//***********************方向i调节******************************
+			case Dir_i:
+				switch(current_event)
+				{
+					case up:
+						Direction_PID.ki+=0.001;
+						motor_dir_pid_init(&Direction_PID);
+						break;
+					case down:
+						Direction_PID.ki-=0.001;
+						motor_dir_pid_init(&Direction_PID);
+						break;
+					case esc:
+						current_state=Dir_PID_State;
+						motor_dir_pid_init(&Direction_PID);
+						ips200_show_string(0,16,"->");
+						current_p=0;
+						break;
+					case enter:
+						//***************************flash 写入****************************
+						flash_buffer_clear();
+						flash_union_buffer[4].float_type=Direction_PID.ki;
+						flash_write_page_from_buffer(FLASH_SECTION_INDEX, FLASH_PAGE_INDEX);        // 向指定 Flash 扇区的页码写入缓冲区数据
+						//***************************flash 写入****************************
+						break;
+					default:
+						break;
+				}
+				break;
+			//***********************方向i调节******************************
+			//***********************方向d调节******************************
+			case Dir_d:
+				switch(current_event)
+				{
+					case up:
+						Direction_PID.kd+=0.001;
+						motor_dir_pid_init(&Direction_PID);
+						break;
+					case down:
+						Direction_PID.kd-=0.001;
+						motor_dir_pid_init(&Direction_PID);
+						break;
+					case esc:
+						current_state=Dir_PID_State;
+						motor_dir_pid_init(&Direction_PID);
+						ips200_show_string(0,16,"->");
+						current_p=0;
+						break;
+					case enter:
+						//***************************flash 写入****************************
+						flash_buffer_clear();
+						flash_union_buffer[5].float_type=Direction_PID.kd;
+						flash_write_page_from_buffer(FLASH_SECTION_INDEX, FLASH_PAGE_INDEX);        // 向指定 Flash 扇区的页码写入缓冲区数据
+						//***************************flash 写入****************************
+						break;
+					default:
+						break;
+				}
+				break;
+			//***********************方向d调节******************************
 			default:
 				break;
 			
