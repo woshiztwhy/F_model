@@ -149,6 +149,9 @@ int main (void)
 	Speed_PID.kp=flash_union_buffer[0].float_type;
 	Speed_PID.ki=flash_union_buffer[1].float_type;
 	Speed_PID.kd=flash_union_buffer[2].float_type;
+	Direction_PID.kp=flash_union_buffer[3].float_type;
+	Direction_PID.ki=flash_union_buffer[4].float_type;
+	Direction_PID.kd=flash_union_buffer[5].float_type;
 	
 	printf("\r\n float_type : %f", flash_union_buffer[0].float_type);
 	//*********************flash数据读入***********************
@@ -277,6 +280,9 @@ int main (void)
 						{
 							case 0:
 								current_state=Dir_PID_State;
+								motor_dir_pid_init(&Direction_PID);
+								ips200_show_string(0,16,"->");
+								current_p=0;
 								break;
 							case 1:
 								current_state=S_PID_State;
@@ -285,9 +291,8 @@ int main (void)
 								current_p=0;
 								break;
 							case 2:
-								current_state=Dir_PID_State;
-								motor_dir_pid_init(&Direction_PID);
-								ips200_show_string(0,16,"->");
+								current_state=M_set_speed;
+								motor_set_speed_menu_init(Speed_Set);
 								current_p=0;
 								break;
 							default:
@@ -306,7 +311,7 @@ int main (void)
 				break;
 			//*******************Motor Param menu**************************
 			//*******************Motor Set Speed***************************
-			case M_duty:
+			case M_set_speed:
 				switch(current_event)
 				{
 					case up:
@@ -746,6 +751,14 @@ int main (void)
 			
 		}
 		//******************************菜单*******************************
+//		flash_buffer_clear();
+//		flash_union_buffer[0].float_type=0;
+//		flash_union_buffer[1].float_type=0;
+//		flash_union_buffer[2].float_type=0;
+//		flash_union_buffer[3].float_type=0;
+//		flash_union_buffer[4].float_type=0;
+//		flash_union_buffer[5].float_type=0;
+//		flash_write_page_from_buffer(FLASH_SECTION_INDEX, FLASH_PAGE_INDEX);        // 向指定 Flash 扇区的页码写入缓冲区数据
 		mt9v03x_finish_flag=0;
 		system_delay_ms(5);
 	}
