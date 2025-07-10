@@ -119,6 +119,40 @@ void Image_Binarization(int threshold)//图像二值化
 }
 
 /*-------------------------------------------------------------------------------------------------------------------
+  @brief     二值化图像补中线函数
+  @param     NULL
+  @return    NULL
+  Sample     Image_Add_Centerline();
+  @note      二值化后直接访问image_two_value[i][j]这个数组即可
+-------------------------------------------------------------------------------------------------------------------*/
+void Image_Add_Centerline(void)
+{
+    uint16 i,j;
+    for(i=0;i<MT9V03X_H;i++)
+    {
+        j=(Left_Line[i]+Right_Line[i])/2;
+		image_two_value[i][j]=IMG_BLACK;
+    }
+}
+
+/*-------------------------------------------------------------------------------------------------------------------
+  @brief     二值化图像补边线函数
+  @param     NULL
+  @return    NULL
+  Sample     Image_Add_Sideline();
+  @note      二值化后直接访问image_two_value[i][j]这个数组即可
+-------------------------------------------------------------------------------------------------------------------*/
+void Image_Add_Sideline(void)
+{
+    uint16 i,j;
+    for(i=0;i<MT9V03X_H;i++)
+    {
+        image_two_value[i][Left_Line[i]]=IMG_BLACK;
+		image_two_value[i][Right_Line[i]]=IMG_BLACK;
+    }
+}
+
+/*-------------------------------------------------------------------------------------------------------------------
   @brief     双最长白列巡线
   @param     null
   @return    null
@@ -735,3 +769,4 @@ void Cross_Detect()
 //    ips200_showuint8(50,13,Left_Down_Find);
 //    ips200_showuint8(100,13,Right_Down_Find);
 }
+

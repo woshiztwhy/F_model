@@ -74,6 +74,7 @@
 
 
 // **************************** 代码区域 ****************************
+#define LED1                    (H2 )
 
 #define MAX_DUTY            (50 )                                               // 最大 MAX_DUTY% 占空比
 #define DIR_L               (A0 )
@@ -139,7 +140,7 @@ int main (void)
 	PID_Init(&Direction_PID,0,0,0,8,10);
 	PID_Init(&Speed_PID,0,0,0,1,10);
 	
-	//*********************flash数据读入***********************
+	//*********************flash数据读入**********************
 //	if(flash_check(FLASH_SECTION_INDEX, FLASH_PAGE_INDEX))                      // 判断是否有数据
 //    {
 //        flash_erase_page(FLASH_SECTION_INDEX, FLASH_PAGE_INDEX);                // 擦除这一页
@@ -153,8 +154,19 @@ int main (void)
 	Direction_PID.ki=flash_union_buffer[4].float_type;
 	Direction_PID.kd=flash_union_buffer[5].float_type;
 	
-	printf("\r\n float_type : %f", flash_union_buffer[0].float_type);
-	//*********************flash数据读入***********************
+//	printf("\r\n float_type : %f", flash_union_buffer[0].float_type);
+	//*********************flash数据读入**********************
+	//********************无线串口初始化**********************
+	gpio_init(LED1, GPO, GPIO_HIGH, GPO_PUSH_PULL);                             // 初始化 LED1 输出 默认高电平 推挽输出模式
+    if(wireless_uart_init())                                                    // 判断是否通过初始化
+    {
+        while(1)                                                                // 初始化失败就在这进入死循环
+        {
+            gpio_toggle_level(LED1);                                            // 翻转 LED 引脚输出电平 控制 LED 亮灭
+            system_delay_ms(100);                                               // 短延时快速闪灯表示异常
+        }
+    }
+	//*********************无线串口初始化**********************
 	//**********************总钻风初始化***********************
 	ips200_show_string(0, 0, "mt9v03x init.");
     while(1)
@@ -173,6 +185,7 @@ int main (void)
 	system_delay_ms(500);
 	//**********************总钻风初始化************************
 	
+//	printf("\r\n %d",Speed_Set);
 	main_menu_init();
 	ips200_show_string(0,16,"->");
 	
@@ -185,7 +198,9 @@ int main (void)
 			Image_Binarization(Threshold);                                         //图像二值化
 			Longest_White_Column();                                                //最长白线法寻边线
 			Cross_Detect();                                                        //十字检测补线
-			mt9v03x_finish_flag=0;                                                 //标志位清除
+			Image_Add_Centerline();                                                //二值化图像补中线
+			Image_Add_Sideline();                                                  //二值化图像补边线
+			mt9v03x_finish_flag=0;
 		}
 		//************************图像处理****************************
 		fsm_Event current_event=no_matter;
@@ -424,6 +439,12 @@ int main (void)
 					current_p=0;
 					break;
 				}
+//				if(mt9v03x_finish_flag)                                                    //先处理图像，再清除标志位
+//				{
+//					camera_send_image(WIRELESS_UART_INDEX, (const uint8 *)image_two_value, MT9V03X_IMAGE_SIZE);
+//					mt9v03x_finish_flag=0;
+//				}
+				printf("\r\n %d,%d",Speed_Set,Speed_Real);
 				ips200_show_int(48,16,Speed_Real,4);
 				ips200_show_float(54,48,Speed_PID.output,4,4);
 				//******************************电机*******************************
@@ -789,18 +810,18 @@ void pit_handler (void)
 	Left_duty=Left_duty+Speed_PID.output-Direction_PID.output;
 	Right_duty=Left_duty+Speed_PID.output+Direction_PID.output;
 	
-	if(current_state==D_m)           //定时关闭电机
-	{
-		time_count++;
-		if(time_count>300)
-		{
-			current_state=M_m;
-			main_menu_init();
-			ips200_show_string(0,16,"->");
-			current_p=0;
-			time_count=0;
-		}
-	}                             
+//	if(current_state==D_m)           //定时关闭电机
+//	{
+//		time_count++;
+//		if(time_count>300)
+//		{
+//			current_state=M_m;
+//			main_menu_init();
+//			ips200_show_string(0,16,"->");
+//			current_p=0;
+//			time_count=0;
+//		}
+//	}                             
 }  
 // **************************** 代码区域 ****************************
 

@@ -49,6 +49,8 @@ void Longest_White_Column();
 float Err_Sum(void);
 void Straight_Detect(float Err);
 void Cross_Detect();
+void Image_Add_Centerline(void);
+void Image_Add_Sideline(void);
 
 #endif
 
