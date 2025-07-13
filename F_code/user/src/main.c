@@ -105,7 +105,7 @@ int Threshold = 0;
 int16 Speed_Left_Real=0;
 int16 Speed_Right_Real=0;
 int16 Speed_Real=0;
-int16 Speed_Set=100;
+int16 Speed_Set=130;
 
 PID Direction_PID={0};
 PID Speed_PID={0};
@@ -137,22 +137,22 @@ int main (void)
     encoder_quad_init(ENCODER_2, ENCODER_2_A, ENCODER_2_B);                     // 初始化编码器模块与引脚 
     pit_ms_init(PIT, 10);
 	
-	PID_Init(&Direction_PID,0,0,0,8,10);
-	PID_Init(&Speed_PID,0,0,0,1,10);
+	PID_Init(&Direction_PID,0.074,0,0.63,1,10);//直道p:0.074d:0.63弯道p:0.14d:
+	PID_Init(&Speed_PID,0.008,0.00007,0.054,0.8,10);//p:0.01-0.30
 	
 	//*********************flash数据读入**********************
 //	if(flash_check(FLASH_SECTION_INDEX, FLASH_PAGE_INDEX))                      // 判断是否有数据
 //    {
 //        flash_erase_page(FLASH_SECTION_INDEX, FLASH_PAGE_INDEX);                // 擦除这一页
 //    }
-	flash_buffer_clear();    
-	flash_read_page_to_buffer(FLASH_SECTION_INDEX, FLASH_PAGE_INDEX);           // 将数据从 flash 读取到缓冲区
-	Speed_PID.kp=flash_union_buffer[0].float_type;
-	Speed_PID.ki=flash_union_buffer[1].float_type;
-	Speed_PID.kd=flash_union_buffer[2].float_type;
-	Direction_PID.kp=flash_union_buffer[3].float_type;
-	Direction_PID.ki=flash_union_buffer[4].float_type;
-	Direction_PID.kd=flash_union_buffer[5].float_type;
+//	flash_buffer_clear();    
+//	flash_read_page_to_buffer(FLASH_SECTION_INDEX, FLASH_PAGE_INDEX);           // 将数据从 flash 读取到缓冲区
+//	Speed_PID.kp=flash_union_buffer[0].float_type;
+//	Speed_PID.ki=flash_union_buffer[1].float_type;
+//	Speed_PID.kd=flash_union_buffer[2].float_type;
+//	Direction_PID.kp=flash_union_buffer[3].float_type;
+//	Direction_PID.ki=flash_union_buffer[4].float_type;
+//	Direction_PID.kd=flash_union_buffer[5].float_type;
 	
 //	printf("\r\n float_type : %f", flash_union_buffer[0].float_type);
 	//*********************flash数据读入**********************
@@ -208,22 +208,42 @@ int main (void)
 		
 		//************************按键扫描****************************
 		key_scanner();
-		if(key_get_state(KEY_1) == KEY_SHORT_PRESS&&KEY_LONG_PRESS)
+		if(key_get_state(KEY_1) == KEY_SHORT_PRESS)
 		{
 			current_event=up;
 			key_clear_state(KEY_1);
 		}
-		if(key_get_state(KEY_2) == KEY_SHORT_PRESS&&KEY_LONG_PRESS)
+		if(key_get_state(KEY_2) == KEY_SHORT_PRESS)
 		{
 			current_event=down;
 			key_clear_state(KEY_2);
 		}
-		if(key_get_state(KEY_3) == KEY_SHORT_PRESS&&KEY_LONG_PRESS)
+		if(key_get_state(KEY_3) == KEY_SHORT_PRESS)
 		{
 			current_event=enter;
 			key_clear_state(KEY_3);
 		}
-		if(key_get_state(KEY_4) == KEY_SHORT_PRESS&&KEY_LONG_PRESS)
+		if(key_get_state(KEY_4) == KEY_SHORT_PRESS)
+		{
+			current_event=esc;
+			key_clear_state(KEY_4);
+		}
+		if(key_get_state(KEY_1) == KEY_LONG_PRESS)
+		{
+			current_event=up;
+			key_clear_state(KEY_1);
+		}
+		if(key_get_state(KEY_2) == KEY_LONG_PRESS)
+		{
+			current_event=down;
+			key_clear_state(KEY_2);
+		}
+		if(key_get_state(KEY_3) == KEY_LONG_PRESS)
+		{
+			current_event=enter;
+			key_clear_state(KEY_3);
+		}
+		if(key_get_state(KEY_4) == KEY_LONG_PRESS)
 		{
 			current_event=esc;
 			key_clear_state(KEY_4);
@@ -267,6 +287,10 @@ int main (void)
 								current_state=D_m;
 								departure_mode_init();
 								system_delay_ms(1500);
+								Left_duty=6;
+								Right_duty=6;
+//								pwm_set_duty(PWM_R, 6);
+//								pwm_set_duty(PWM_L, 6);
 								break;
 							default:
 								break;
@@ -445,8 +469,12 @@ int main (void)
 //					mt9v03x_finish_flag=0;
 //				}
 				printf("\r\n %d,%d",Speed_Set,Speed_Real);
+				printf("\r\n %f",Err_Sum());
 				ips200_show_int(48,16,Speed_Real,4);
 				ips200_show_float(54,48,Speed_PID.output,4,4);
+				ips200_show_float(0,32,Direction_PID.output*Err_Sum(),4,5);
+				ips200_show_int(0,0,Left_duty,4);
+				ips200_show_float(0,64,Err_Sum(),4,5);
 				//******************************电机*******************************
 				if(Left_duty>MAX_DUTY)
 				{
@@ -467,23 +495,23 @@ int main (void)
 			    if(0 <= Left_duty)                                                           // 正转
 			    {
 			        gpio_set_level(DIR_L, GPIO_HIGH);                                   // DIR输出高电平
-			        pwm_set_duty(PWM_L, Left_duty * (PWM_DUTY_MAX / 100));              // 计算占空比
+			        pwm_set_duty(PWM_R, Left_duty * (PWM_DUTY_MAX / 100));              // 计算占空比
 			    }
 			    else                                                                    // 反转
 			    {
 			        gpio_set_level(DIR_L, GPIO_LOW);                                    // DIR输出低电平
-			        pwm_set_duty(PWM_L, (-Left_duty) * (PWM_DUTY_MAX / 100));                // 计算占空比
+			        pwm_set_duty(PWM_R, (-Left_duty) * (PWM_DUTY_MAX / 100));                // 计算占空比
 			    }
 			    
 			    if(0 <= Right_duty)                                                           // 正转
 			    {
 			        gpio_set_level(DIR_R, GPIO_HIGH);                                   // DIR输出高电平
-			        pwm_set_duty(PWM_R, Right_duty * (PWM_DUTY_MAX / 100));              // 计算占空比
+			        pwm_set_duty(PWM_L, Right_duty * (PWM_DUTY_MAX / 100));              // 计算占空比
 			    }
 			    else                                                                    // 反转
 			    {
 			        gpio_set_level(DIR_R, GPIO_LOW);                                    // DIR输出低电平
-			        pwm_set_duty(PWM_R, (-Right_duty) * (PWM_DUTY_MAX / 100));                // 计算占空比
+			        pwm_set_duty(PWM_L, (-Right_duty) * (PWM_DUTY_MAX / 100));                // 计算占空比
 			    }
 			    //******************************电机*******************************
 				switch(current_event)
@@ -548,11 +576,11 @@ int main (void)
 				switch(current_event)
 				{
 					case up:
-						Speed_PID.kp+=0.001;
+						Speed_PID.kp+=0.0001;
 						motor_speed_pid_init(&Speed_PID);
 						break;
 					case down:
-						Speed_PID.kp-=0.001;
+						Speed_PID.kp-=0.0001;
 						motor_speed_pid_init(&Speed_PID);
 						break;
 					case esc:
@@ -561,13 +589,13 @@ int main (void)
 						ips200_show_string(0,16,"->");
 						current_p=0;
 						break;
-					case enter:
-						//***************************flash 写入****************************
-						flash_buffer_clear();
-						flash_union_buffer[0].float_type=Speed_PID.kp;
-						flash_write_page_from_buffer(FLASH_SECTION_INDEX, FLASH_PAGE_INDEX);        // 向指定 Flash 扇区的页码写入缓冲区数据
-						//***************************flash 写入****************************
-						break;
+//					case enter:
+//						//***************************flash 写入****************************
+//						flash_buffer_clear();
+//						flash_union_buffer[0].float_type=Speed_PID.kp;
+//						flash_write_page_from_buffer(FLASH_SECTION_INDEX, FLASH_PAGE_INDEX);        // 向指定 Flash 扇区的页码写入缓冲区数据
+//						//***************************flash 写入****************************
+//						break;
 					default:
 						break;
 				}
@@ -578,11 +606,11 @@ int main (void)
 				switch(current_event)
 				{
 					case up:
-						Speed_PID.ki+=0.001;
+						Speed_PID.ki+=0.0001;
 						motor_speed_pid_init(&Speed_PID);
 						break;
 					case down:
-						Speed_PID.ki-=0.001;
+						Speed_PID.ki-=0.0001;
 						motor_speed_pid_init(&Speed_PID);
 						break;
 					case esc:
@@ -591,13 +619,13 @@ int main (void)
 						ips200_show_string(0,16,"->");
 						current_p=0;
 						break;
-					case enter:
-						//***************************flash 写入****************************
-						flash_buffer_clear();
-						flash_union_buffer[1].float_type=Speed_PID.ki;
-						flash_write_page_from_buffer(FLASH_SECTION_INDEX, FLASH_PAGE_INDEX);        // 向指定 Flash 扇区的页码写入缓冲区数据
-						//***************************flash 写入****************************
-						break;
+//					case enter:
+//						//***************************flash 写入****************************
+//						flash_buffer_clear();
+//						flash_union_buffer[1].float_type=Speed_PID.ki;
+//						flash_write_page_from_buffer(FLASH_SECTION_INDEX, FLASH_PAGE_INDEX);        // 向指定 Flash 扇区的页码写入缓冲区数据
+//						//***************************flash 写入****************************
+//						break;
 					default:
 						break;
 				}
@@ -621,13 +649,13 @@ int main (void)
 						ips200_show_string(0,16,"->");
 						current_p=0;
 						break;
-					case enter:
-						//***************************flash 写入****************************
-						flash_buffer_clear();
-						flash_union_buffer[2].float_type=Speed_PID.kd;
-						flash_write_page_from_buffer(FLASH_SECTION_INDEX, FLASH_PAGE_INDEX);        // 向指定 Flash 扇区的页码写入缓冲区数据
-						//***************************flash 写入****************************
-						break;
+//					case enter:
+//						//***************************flash 写入****************************
+//						flash_buffer_clear();
+//						flash_union_buffer[2].float_type=Speed_PID.kd;
+//						flash_write_page_from_buffer(FLASH_SECTION_INDEX, FLASH_PAGE_INDEX);        // 向指定 Flash 扇区的页码写入缓冲区数据
+//						//***************************flash 写入****************************
+//						break;
 					default:
 						break;
 				}
@@ -697,9 +725,9 @@ int main (void)
 						break;
 					case enter:
 						//***************************flash 写入****************************
-						flash_buffer_clear();
-						flash_union_buffer[3].float_type=Direction_PID.kp;
-						flash_write_page_from_buffer(FLASH_SECTION_INDEX, FLASH_PAGE_INDEX);        // 向指定 Flash 扇区的页码写入缓冲区数据
+//						flash_buffer_clear();
+//						flash_union_buffer[3].float_type=Direction_PID.kp;
+//						flash_write_page_from_buffer(FLASH_SECTION_INDEX, FLASH_PAGE_INDEX);        // 向指定 Flash 扇区的页码写入缓冲区数据
 						//***************************flash 写入****************************
 						break;
 					default:
@@ -712,11 +740,11 @@ int main (void)
 				switch(current_event)
 				{
 					case up:
-						Direction_PID.ki+=0.001;
+						Direction_PID.ki+=0.0001;
 						motor_dir_pid_init(&Direction_PID);
 						break;
 					case down:
-						Direction_PID.ki-=0.001;
+						Direction_PID.ki-=0.0001;
 						motor_dir_pid_init(&Direction_PID);
 						break;
 					case esc:
@@ -726,11 +754,11 @@ int main (void)
 						current_p=0;
 						break;
 					case enter:
-						//***************************flash 写入****************************
-						flash_buffer_clear();
-						flash_union_buffer[4].float_type=Direction_PID.ki;
-						flash_write_page_from_buffer(FLASH_SECTION_INDEX, FLASH_PAGE_INDEX);        // 向指定 Flash 扇区的页码写入缓冲区数据
-						//***************************flash 写入****************************
+//						//***************************flash 写入****************************
+//						flash_buffer_clear();
+//						flash_union_buffer[4].float_type=Direction_PID.ki;
+//						flash_write_page_from_buffer(FLASH_SECTION_INDEX, FLASH_PAGE_INDEX);        // 向指定 Flash 扇区的页码写入缓冲区数据
+//						//***************************flash 写入****************************
 						break;
 					default:
 						break;
@@ -742,11 +770,11 @@ int main (void)
 				switch(current_event)
 				{
 					case up:
-						Direction_PID.kd+=0.001;
+						Direction_PID.kd+=0.01;
 						motor_dir_pid_init(&Direction_PID);
 						break;
 					case down:
-						Direction_PID.kd-=0.001;
+						Direction_PID.kd-=0.01;
 						motor_dir_pid_init(&Direction_PID);
 						break;
 					case esc:
@@ -756,11 +784,11 @@ int main (void)
 						current_p=0;
 						break;
 					case enter:
-						//***************************flash 写入****************************
-						flash_buffer_clear();
-						flash_union_buffer[5].float_type=Direction_PID.kd;
-						flash_write_page_from_buffer(FLASH_SECTION_INDEX, FLASH_PAGE_INDEX);        // 向指定 Flash 扇区的页码写入缓冲区数据
-						//***************************flash 写入****************************
+//						//***************************flash 写入****************************
+//						flash_buffer_clear();
+//						flash_union_buffer[5].float_type=Direction_PID.kd;
+//						flash_write_page_from_buffer(FLASH_SECTION_INDEX, FLASH_PAGE_INDEX);        // 向指定 Flash 扇区的页码写入缓冲区数据
+//						//***************************flash 写入****************************
 						break;
 					default:
 						break;
@@ -793,6 +821,7 @@ int main (void)
 //-------------------------------------------------------------------------------------------------------------------
 void pit_handler (void)
 {
+	
     Speed_Left_Real = encoder_get_count(ENCODER_1);                              // 获取编码器计数
     encoder_clear_count(ENCODER_1);                                             // 清空编码器计数
 
@@ -802,13 +831,14 @@ void pit_handler (void)
 	Speed_Real = (Speed_Left_Real+Speed_Right_Real)/2;
 	
 	//*************************PID数据计算******************************
-		
+	float err=Err_Sum();
+//	float err=MT9V03X_W/2-((Left_Line[20]+Right_Line[20])>>1);	
 	PID_Calc(&Speed_PID,(float)(Speed_Set-Speed_Real));
-	PID_Calc(&Direction_PID,Err_Sum());
+	PID_Calc(&Direction_PID,err);
 	
 	//*************************PID数据计算******************************
-	Left_duty=Left_duty+Speed_PID.output-Direction_PID.output;
-	Right_duty=Left_duty+Speed_PID.output+Direction_PID.output;
+	Left_duty=Left_duty+Speed_PID.output-Direction_PID.output;//*err*err/10000
+	Right_duty=Right_duty+Speed_PID.output+Direction_PID.output;
 	
 //	if(current_state==D_m)           //定时关闭电机
 //	{
