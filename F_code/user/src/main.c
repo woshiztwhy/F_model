@@ -105,7 +105,7 @@ int Threshold = 0;
 int16 Speed_Left_Real=0;
 int16 Speed_Right_Real=0;
 int16 Speed_Real=0;
-int16 Speed_Set=130;
+int16 Speed_Set=100;
 
 PID Direction_PID={0};
 PID Speed_PID={0};
@@ -133,12 +133,13 @@ int main (void)
 	
 	key_init(10); 
 	
-	encoder_quad_init(ENCODER_1, ENCODER_1_A, ENCODER_1_B);                     // 初始化编码器模块与引脚 
+	encoder_quad_init(  ENCODER_1, ENCODER_1_A, ENCODER_1_B);                     // 初始化编码器模块与引脚 
     encoder_quad_init(ENCODER_2, ENCODER_2_A, ENCODER_2_B);                     // 初始化编码器模块与引脚 
-    pit_ms_init(PIT, 10);
+    pit_ms_init(PIT, 5);
+	interrupt_set_priority(TIM6_IRQn,0);
 	
-	PID_Init(&Direction_PID,0.074,0,0.63,1,10);//直道p:0.074d:0.63弯道p:0.14d:
-	PID_Init(&Speed_PID,0.008,0.00007,0.054,0.8,10);//p:0.01-0.30
+	PID_Init(&Direction_PID,0.7 ,0,0.09,8,50);//直道p:0.074d:0.63弯道p:0.14d:
+	PID_Init(&Speed_PID,0.3,0.01,0,8,50);//p:0.01-0.30
 	
 	//*********************flash数据读入**********************
 //	if(flash_check(FLASH_SECTION_INDEX, FLASH_PAGE_INDEX))                      // 判断是否有数据
@@ -192,16 +193,13 @@ int main (void)
     while(1)
 	{
 		//************************图像处理****************************
-		if(mt9v03x_finish_flag)                                                    //先处理图像，再清除标志位
-		{
-			Threshold=My_Adapt_Threshold(mt9v03x_image[0],MT9V03X_W, MT9V03X_H);   //大津算阈值
-			Image_Binarization(Threshold);                                         //图像二值化
-			Longest_White_Column();                                                //最长白线法寻边线
-			Cross_Detect();                                                        //十字检测补线
-			Image_Add_Centerline();                                                //二值化图像补中线
-			Image_Add_Sideline();                                                  //二值化图像补边线
-			mt9v03x_finish_flag=0;
-		}
+		
+		Threshold=My_Adapt_Threshold(mt9v03x_image[0],MT9V03X_W, MT9V03X_H);   //大津算阈值
+		Image_Binarization(Threshold);                                         //图像二值化
+		Longest_White_Column();                                                //最长白线法寻边线
+		Cross_Detect();                                                        //十字检测补线
+		Image_Add_Centerline();                                                //二值化图像补中线
+		Image_Add_Sideline();                                                  //二值化图像补边线
 		//************************图像处理****************************
 		fsm_Event current_event=no_matter;
 		int num=menu_num(current_state);
@@ -284,11 +282,10 @@ int main (void)
 								current_p=0;
 								break;
 							case 2:
-								current_state=D_m;
+								
 								departure_mode_init();
 								system_delay_ms(1500);
-								Left_duty=6;
-								Right_duty=6;
+								current_state=D_m;
 //								pwm_set_duty(PWM_R, 6);
 //								pwm_set_duty(PWM_L, 6);
 								break;
@@ -468,52 +465,14 @@ int main (void)
 //					camera_send_image(WIRELESS_UART_INDEX, (const uint8 *)image_two_value, MT9V03X_IMAGE_SIZE);
 //					mt9v03x_finish_flag=0;
 //				}
-				printf("\r\n %d,%d",Speed_Set,Speed_Real);
-				printf("\r\n %f",Err_Sum());
+//				printf("\r\n %d,%d",Speed_Set,Speed_Real);
+//				printf("\r\n %f",Err_Sum());
 				ips200_show_int(48,16,Speed_Real,4);
-				ips200_show_float(54,48,Speed_PID.output,4,4);
-				ips200_show_float(0,32,Direction_PID.output*Err_Sum(),4,5);
-				ips200_show_int(0,0,Left_duty,4);
+//				ips200_show_float(54,48,Speed_PID.output,4,4);
+//				ips200_show_float(0,32,Direction_PID.output*Err_Sum(),4,5);
+//				ips200_show_int(0,0,Left_duty,4);
 				ips200_show_float(0,64,Err_Sum(),4,5);
-				//******************************电机*******************************
-				if(Left_duty>MAX_DUTY)
-				{
-					Left_duty=MAX_DUTY;
-				}
-				if(Right_duty>MAX_DUTY)
-				{
-					Right_duty=MAX_DUTY;
-				}
-				if(Left_duty<-MAX_DUTY)
-				{
-					Left_duty=-MAX_DUTY;
-				}
-				if(Right_duty<-MAX_DUTY)
-				{
-					Right_duty=-MAX_DUTY;
-				}
-			    if(0 <= Left_duty)                                                           // 正转
-			    {
-			        gpio_set_level(DIR_L, GPIO_HIGH);                                   // DIR输出高电平
-			        pwm_set_duty(PWM_R, Left_duty * (PWM_DUTY_MAX / 100));              // 计算占空比
-			    }
-			    else                                                                    // 反转
-			    {
-			        gpio_set_level(DIR_L, GPIO_LOW);                                    // DIR输出低电平
-			        pwm_set_duty(PWM_R, (-Left_duty) * (PWM_DUTY_MAX / 100));                // 计算占空比
-			    }
-			    
-			    if(0 <= Right_duty)                                                           // 正转
-			    {
-			        gpio_set_level(DIR_R, GPIO_HIGH);                                   // DIR输出高电平
-			        pwm_set_duty(PWM_L, Right_duty * (PWM_DUTY_MAX / 100));              // 计算占空比
-			    }
-			    else                                                                    // 反转
-			    {
-			        gpio_set_level(DIR_R, GPIO_LOW);                                    // DIR输出低电平
-			        pwm_set_duty(PWM_L, (-Right_duty) * (PWM_DUTY_MAX / 100));                // 计算占空比
-			    }
-			    //******************************电机*******************************
+				
 				switch(current_event)
 				{
 					case esc:
@@ -576,11 +535,11 @@ int main (void)
 				switch(current_event)
 				{
 					case up:
-						Speed_PID.kp+=0.0001;
+						Speed_PID.kp+=0.01;
 						motor_speed_pid_init(&Speed_PID);
 						break;
 					case down:
-						Speed_PID.kp-=0.0001;
+						Speed_PID.kp-=0.01;
 						motor_speed_pid_init(&Speed_PID);
 						break;
 					case esc:
@@ -606,11 +565,11 @@ int main (void)
 				switch(current_event)
 				{
 					case up:
-						Speed_PID.ki+=0.0001;
+						Speed_PID.ki+=0.001;
 						motor_speed_pid_init(&Speed_PID);
 						break;
 					case down:
-						Speed_PID.ki-=0.0001;
+						Speed_PID.ki-=0.001;
 						motor_speed_pid_init(&Speed_PID);
 						break;
 					case esc:
@@ -710,11 +669,11 @@ int main (void)
 				switch(current_event)
 				{
 					case up:
-						Direction_PID.kp+=0.001;
+						Direction_PID.kp+=0.01;
 						motor_dir_pid_init(&Direction_PID);
 						break;
 					case down:
-						Direction_PID.kp-=0.001;
+						Direction_PID.kp-=0.01;
 						motor_dir_pid_init(&Direction_PID);
 						break;
 					case esc:
@@ -808,8 +767,7 @@ int main (void)
 //		flash_union_buffer[4].float_type=0;
 //		flash_union_buffer[5].float_type=0;
 //		flash_write_page_from_buffer(FLASH_SECTION_INDEX, FLASH_PAGE_INDEX);        // 向指定 Flash 扇区的页码写入缓冲区数据
-		mt9v03x_finish_flag=0;
-		system_delay_ms(5);
+		system_delay_ms(1);
 	}
 }
 
@@ -832,14 +790,59 @@ void pit_handler (void)
 	
 	//*************************PID数据计算******************************
 	float err=Err_Sum();
+//	Direction_PID.kp=0.07+err*err/6.5/6.5/1000;//8.5
 //	float err=MT9V03X_W/2-((Left_Line[20]+Right_Line[20])>>1);	
 	PID_Calc(&Speed_PID,(float)(Speed_Set-Speed_Real));
 	PID_Calc(&Direction_PID,err);
-	
+	 
 	//*************************PID数据计算******************************
-	Left_duty=Left_duty+Speed_PID.output-Direction_PID.output;//*err*err/10000
-	Right_duty=Right_duty+Speed_PID.output+Direction_PID.output;
+	Left_duty=Speed_PID.output+Direction_PID.output;//*err*err/10000Left_duty+
+	Right_duty=Speed_PID.output-Direction_PID.output;//Right_duty+
 	
+//	Left_duty=-10;
+//	Right_duty=-20;
+	if(current_state==D_m)
+	{
+		//******************************电机*******************************
+		if(Left_duty>MAX_DUTY)
+		{
+			Left_duty=MAX_DUTY;
+		}
+		if(Right_duty>MAX_DUTY)
+		{
+			Right_duty=MAX_DUTY;
+		}
+		if(Left_duty<-MAX_DUTY)
+		{
+			Left_duty=-MAX_DUTY;
+		}
+		if(Right_duty<-MAX_DUTY)
+		{
+			Right_duty=-MAX_DUTY;
+		}
+		if(0 <= Left_duty)                                                           // 正转
+		{
+		    gpio_set_level(DIR_L, GPIO_HIGH);                                   // DIR输出高电平
+		    pwm_set_duty(PWM_L, Left_duty * (PWM_DUTY_MAX / 100));              // 计算占空比
+		}
+		else                                                                    // 反转
+		{
+		    gpio_set_level(DIR_L, GPIO_LOW);                                    // DIR输出低电平
+		    pwm_set_duty(PWM_L, (-Left_duty) * (PWM_DUTY_MAX / 100));                // 计算占空比
+		}
+		
+		if(0 <= Right_duty)                                                           // 正转
+		{
+			gpio_set_level(DIR_R, GPIO_HIGH);                                   // DIR输出高电平
+		    pwm_set_duty(PWM_R, Right_duty * (PWM_DUTY_MAX / 100));              // 计算占空比
+		}
+		else                                                                    // 反转
+		{
+		    gpio_set_level(DIR_R, GPIO_LOW);                                    // DIR输出低电平
+		    pwm_set_duty(PWM_R, (-Right_duty) * (PWM_DUTY_MAX / 100));                // 计算占空比
+		}
+		//******************************电机*******************************
+	}
 //	if(current_state==D_m)           //定时关闭电机
 //	{
 //		time_count++;

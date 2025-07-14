@@ -354,7 +354,7 @@ float Err_Sum(void)
     int i;
     float err=0;
     //常规误差
-     for(i=61;i<=65;i++)
+     for(i=31;i<=35;i++)
      {
         err+=(MT9V03X_W/2-((Left_Line[i]+Right_Line[i])>>1));//右移1位，等效除2
      }
