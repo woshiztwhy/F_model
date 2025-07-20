@@ -136,7 +136,9 @@ int main (void)
 	encoder_quad_init(  ENCODER_1, ENCODER_1_A, ENCODER_1_B);                     // 初始化编码器模块与引脚 
     encoder_quad_init(ENCODER_2, ENCODER_2_A, ENCODER_2_B);                     // 初始化编码器模块与引脚 
     pit_ms_init(PIT, 5);
+//	pit_ms_init(TIM7_PIT,50);
 	interrupt_set_priority(TIM6_IRQn,0);
+	interrupt_set_priority(TIM7_IRQn,1);
 	
 	PID_Init(&Direction_PID,0.7 ,0,0.09,8,50);//直道p:0.074d:0.63弯道p:0.14d:
 	PID_Init(&Speed_PID,0.3,0.01,0,8,50);//p:0.01-0.30
@@ -193,13 +195,12 @@ int main (void)
     while(1)
 	{
 		//************************图像处理****************************
-		
 		Threshold=My_Adapt_Threshold(mt9v03x_image[0],MT9V03X_W, MT9V03X_H);   //大津算阈值
 		Image_Binarization(Threshold);                                         //图像二值化
-		Longest_White_Column();                                                //最长白线法寻边线
-		Cross_Detect();                                                        //十字检测补线
+		Longest_White_Column();                                                //最长白线法寻边线                                                       //十字检测补线
 		Image_Add_Centerline();                                                //二值化图像补中线
 		Image_Add_Sideline();                                                  //二值化图像补边线
+		Zebra_Detect();                                                        //斑马线判断
 		//************************图像处理****************************
 		fsm_Event current_event=no_matter;
 		int num=menu_num(current_state);
@@ -452,7 +453,11 @@ int main (void)
 			//*********************Binary image****************************
 			//********************Depature  mode***************************
 			case D_m:
-				if(Longest_White_Column_Left[0]<=MT9V03X_H/10)
+//				for(int i=0;i<MT9V03X_H;i++)
+//				{
+//					printf("\r\n %d",Right_Line[i]-Left_Line[i]);
+//				}
+				if(Longest_White_Column_Left[0]<=MT9V03X_H/10||Zebra_Flag==1)
 				{
 					current_state=M_m;
 					main_menu_init();
@@ -468,6 +473,8 @@ int main (void)
 //				printf("\r\n %d,%d",Speed_Set,Speed_Real);
 //				printf("\r\n %f",Err_Sum());
 				ips200_show_int(48,16,Speed_Real,4);
+				ips200_show_int(0,0,Zebra_Flag,1);
+
 //				ips200_show_float(54,48,Speed_PID.output,4,4);
 //				ips200_show_float(0,32,Direction_PID.output*Err_Sum(),4,5);
 //				ips200_show_int(0,0,Left_duty,4);
@@ -767,6 +774,7 @@ int main (void)
 //		flash_union_buffer[4].float_type=0;
 //		flash_union_buffer[5].float_type=0;
 //		flash_write_page_from_buffer(FLASH_SECTION_INDEX, FLASH_PAGE_INDEX);        // 向指定 Flash 扇区的页码写入缓冲区数据
+		Zebra_Flag=0;
 		system_delay_ms(1);
 	}
 }
@@ -794,7 +802,14 @@ void pit_handler (void)
 //	float err=MT9V03X_W/2-((Left_Line[20]+Right_Line[20])>>1);	
 	PID_Calc(&Speed_PID,(float)(Speed_Set-Speed_Real));
 	PID_Calc(&Direction_PID,err);
-	 
+	if(-5<=err&&err<=5)
+	{
+		Speed_Set=150;//150
+	}
+	else
+	{
+		Speed_Set=110;//120
+	}
 	//*************************PID数据计算******************************
 	Left_duty=Speed_PID.output+Direction_PID.output;//*err*err/10000Left_duty+
 	Right_duty=Speed_PID.output-Direction_PID.output;//Right_duty+
@@ -856,6 +871,12 @@ void pit_handler (void)
 //		}
 //	}                             
 }  
+
+void TIM7_handler (void)
+{
+	Threshold=My_Adapt_Threshold(mt9v03x_image[0],MT9V03X_W, MT9V03X_H);   //大津算阈值
+}
+
 // **************************** 代码区域 ****************************
 
 // *************************** 例程常见问题说明 ***************************

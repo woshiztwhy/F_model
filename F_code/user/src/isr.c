@@ -115,6 +115,8 @@ void TIM6_IRQHandler (void)
 //-------------------------------------------------------------------------------------------------------------------
 void TIM7_IRQHandler (void)
 {
+	extern void TIM7_handler (void);
+	TIM7_handler();
     // 此处编写用户代码
 
     // 此处编写用户代码

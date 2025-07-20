@@ -10,7 +10,7 @@
 
 extern  uint8    image_two_value[MT9V03X_H][MT9V03X_W];                          //¶þÖµ»¯ºóÍ¼ÏñÊý×é
 
-extern		const uint8  Standard_Road_Wide[MT9V03X_H];                          //±ê×¼Èü¿íÊý×é
+extern		const uint8  Standard_Road_Wide[];                          //±ê×¼Èü¿íÊý×é
 extern		volatile int Left_Line[MT9V03X_H];                                   //×ó±ßÏßÊý×é
 extern		volatile int Right_Line[MT9V03X_H];                                  //ÓÒ±ßÏßÊý×é
 extern		volatile int Mid_Line[MT9V03X_H];                                    //ÖÐÏßÊý×é
@@ -41,16 +41,17 @@ extern		uint8 Island_State;                                                  //»
 extern		uint8 Cross_Flag;                                                    //Ê®×Ö±êÖ¾
 extern		uint8 Ramp_Flag;                                                     //ÆÂµÀ±êÖ¾
 extern		uint8 Straight_Flag;                                                 //Ö±µÀ±êÖ¾
+extern		uint8 Zebra_Flag;                                                    //°ßÂíÏß±êÖ¾  
 //***************************************ÔªËØ¼ì²â±êÖ¾*********************************************
                                                                                 
 int My_Adapt_Threshold(uint8*image,uint16 width, uint16 height);
 void Image_Binarization(int threshold);
 void Longest_White_Column();
 float Err_Sum(void);
-void Straight_Detect(float Err);
-void Cross_Detect();
 void Image_Add_Centerline(void);
 void Image_Add_Sideline(void);
+void Zebra_Detect(void);
+
 
 #endif
 
