@@ -106,6 +106,7 @@ int16 Speed_Left_Real=0;
 int16 Speed_Right_Real=0;
 int16 Speed_Real=0;
 int16 Speed_Set=100;
+int16 Speed_max=150;
 
 PID Direction_PID={0};
 PID Speed_PID={0};
@@ -113,6 +114,7 @@ PID Speed_PID={0};
 uint32 time_count=0;
 
 fsm_State current_state=M_m;
+
 uint8 current_p=0;
 
 int main (void)
@@ -197,7 +199,8 @@ int main (void)
 		//************************图像处理****************************
 		Threshold=My_Adapt_Threshold(mt9v03x_image[0],MT9V03X_W, MT9V03X_H);   //大津算阈值
 		Image_Binarization(Threshold);                                         //图像二值化
-		Longest_White_Column();                                                //最长白线法寻边线                                                       //十字检测补线
+		Longest_White_Column();                                                //最长白线法寻边线 
+//        Circle_Detect();                                                       //圆环检测
 		Image_Add_Centerline();                                                //二值化图像补中线
 		Image_Add_Sideline();                                                  //二值化图像补边线
 		Zebra_Detect();                                                        //斑马线判断
@@ -352,12 +355,12 @@ int main (void)
 				switch(current_event)
 				{
 					case up:
-						Speed_Set++;
-						motor_set_speed_menu_init(Speed_Set);
+						Speed_max++;
+						motor_set_speed_menu_init(Speed_max);
 						break;
 					case down:
-						Speed_Set--;
-						motor_set_speed_menu_init(Speed_Set);
+						Speed_max--;
+						motor_set_speed_menu_init(Speed_max);
 						break;
 					case esc:
 						current_state=M_Param;
@@ -802,13 +805,13 @@ void pit_handler (void)
 //	float err=MT9V03X_W/2-((Left_Line[20]+Right_Line[20])>>1);	
 	PID_Calc(&Speed_PID,(float)(Speed_Set-Speed_Real));
 	PID_Calc(&Direction_PID,err);
-	if(-5<=err&&err<=5)
+	if(-4<=err&&err<=4&&((Right_Line[41]-Right_Line[40])<=2))
 	{
-		Speed_Set=150;//150
+		Speed_Set=Speed_max;//150
 	}
 	else
 	{
-		Speed_Set=110;//120
+		Speed_Set=120;//120
 	}
 	//*************************PID数据计算******************************
 	Left_duty=Speed_PID.output+Direction_PID.output;//*err*err/10000Left_duty+

@@ -32,6 +32,11 @@ int Left_Down_Find;
 int Right_Up_Find;
 int Left_Up_Find;
 
+volatile circle_fsm circle_state_fsm=no_circle;
+volatile int right_point_line=0;
+volatile int left_point_line=0;
+volatile int change_line=0;
+
 const uint8 Standard_Road_Wide[MT9V03X_H]={
 	35,36,37,39,40,41,42,43,45,46,
 	47,49,50,51,53,54,55,56,57,59,
@@ -197,8 +202,13 @@ void Longest_White_Column()//最长白列巡线
         White_Column[i] = 0;
     }
  
-////环岛需要对最长白列范围进行限定
-//    //环岛3状态需要改变最长白列寻找范围
+//环岛需要对最长白列范围进行限定
+    //环岛3状态需要改变最长白列寻找范围
+	if(circle_state_fsm==circle_state2)
+	{
+		start_column=70;
+		end_column=MT9V03X_W-20;
+	}
 //    if(Right_Island_Flag==1)//右环
 //    {
 //        if(Island_State==3)
@@ -339,13 +349,13 @@ const uint8 Weight[MT9V03X_H]=
         1, 1, 1, 1, 1, 1, 1, 1, 1, 1,              //图像最远端00 ——09 行权重
         1, 1, 1, 1, 1, 1, 1, 1, 1, 1,              //图像最远端10 ——19 行权重
         1, 1, 1, 1, 1, 1, 1, 1, 1, 1,              //图像最远端20 ——29 行权重
-        1, 1, 5, 9,13,15,17,19,20,20,              //图像最远端30 ——39 行权重
-       19,17,15,13,11, 9, 5, 1, 1, 1,              //图像最远端40 ——49 行权重
+        1, 1, 4, 8,12,14,16,18,20,20,              //图像最远端30 ——39 行权重
+       20,19,17,15,13,11, 9, 7, 4, 1,              //图像最远端40 ——49 行权重
         1, 1, 1, 1, 1, 1, 1, 1, 1, 1,              //图像最远端50 ——59 行权重
         1, 1, 1, 1, 1, 1, 1, 1, 1, 1,              //图像最远端60 ——69 行权重
 };
 //误差计算
-float Err_Sum(void)
+float Err_Sum(void) 
 {
     int i;
     float err=0;
@@ -655,4 +665,241 @@ int Find_Right_Down_Point(int start,int end)//找四个角点，返回值是角点所在的行数
         }
     }
     return right_down_line;
+}
+/*-------------------------------------------------------------------------------------------------------------------
+  @brief     右赛道连续性检测
+  @param     起始点，终止点
+  @return    连续返回0，不连续返回断线出行数
+  Sample     continuity_change_flag=Continuity_Change_Right(int start,int end)
+  @note      连续性的阈值设置为5，可更改
+-------------------------------------------------------------------------------------------------------------------*/
+int Continuity_Change_Right(int start,int end)
+{
+    int i;
+    int t;
+    int continuity_change_flag=0;
+    if(Right_Lost_Time>=0.9*MT9V03X_H)//大部分都丢线，没必要判断了
+       return 1;
+    if(start>=MT9V03X_H-5)//数组越界保护
+        start=MT9V03X_H-5;
+    if(end<=5)
+       end=5;
+    if(start<end)//都是从下往上计算的，反了就互换一下
+    {
+       t=start;
+       start=end;
+       end=t;
+    }
+ 
+    for(i=start;i>=end;i--)
+    {
+        if(abs(Right_Line[i]-Right_Line[i-1])>=5)//连续性阈值是5，可更改
+       {
+            continuity_change_flag=i;
+            break;
+       }
+    }
+    return continuity_change_flag;
+}
+/*-------------------------------------------------------------------------------------------------------------------
+  @brief     通过斜率，定点补线--
+  @param     k       输入斜率
+             startY  输入起始点纵坐标
+             endY    结束点纵坐标
+  @return    null
+  Sample     K_Add_Boundry_Left(float k,int startY,int endY);
+  @note      补得线直接贴在边线上
+-------------------------------------------------------------------------------------------------------------------*/
+void K_Add_Boundry_Left(float k,int startX,int startY,int endY)
+{
+    int i,t;
+    if(startY>=MT9V03X_H-1)
+        startY=MT9V03X_H-1;
+    else if(startY<=0)
+        startY=0;
+    if(endY>=MT9V03X_H-1)
+        endY=MT9V03X_H-1;
+    else if(endY<=0)
+        endY=0;
+    if(startY<endY)//--操作，start需要大
+    {
+        t=startY;
+        startY=endY;
+        endY=t;
+    }
+//这里有bug，下方循环--循环，需要start要大，只进行y的互换，但是没有进行x的互换
+//建议进行判断，如果start更小，那就进行++访问
+//这里修改各位自行操作
+    for(i=startY;i>=endY;i--)
+    {
+        Left_Line[i]=(int)((i-startY)/k+startX);//(y-y1)=k(x-x1)变形，x=(y-y1)/k+x1
+        if(Left_Line[i]>=MT9V03X_W-1)
+        {
+            Left_Line[i]=MT9V03X_W-1;
+        }
+        else if(Left_Line[i]<=0)
+        {
+            Left_Line[i]=0;
+        }
+    }
+}
+/*-------------------------------------------------------------------------------------------------------------------
+  @brief     单调性突变检测
+  @param     起始点，终止行
+  @return    点所在的行数，找不到返回0
+  Sample     Find_Right_Up_Point(int start,int end);
+  @note      前5后5它最大（最小），那他就是角点
+-------------------------------------------------------------------------------------------------------------------*/
+int Monotonicity_Change_Right(int start,int end)//单调性改变，返回值是单调性改变点所在的行数
+{
+    int i;
+    int monotonicity_change_line=0;
+ 
+    if(Right_Lost_Time>=0.9*MT9V03X_H)//大部分都丢线，没有单调性判断的意义
+        return monotonicity_change_line;
+    if(start>=MT9V03X_H-1-5)//数组越界保护
+        start=MT9V03X_H-1-5;
+     if(end<=5)
+        end=5;
+    if(start<=end)
+        return monotonicity_change_line;
+    for(i=start;i>=end;i--)//会读取前5后5数据，所以前面对输入范围有要求
+    {
+        if(Right_Line[i]==Right_Line[i+5]&&Right_Line[i]==Right_Line[i-5]&&
+        Right_Line[i]==Right_Line[i+4]&&Right_Line[i]==Right_Line[i-4]&&
+        Right_Line[i]==Right_Line[i+3]&&Right_Line[i]==Right_Line[i-3]&&
+        Right_Line[i]==Right_Line[i+2]&&Right_Line[i]==Right_Line[i-2]&&
+        Right_Line[i]==Right_Line[i+1]&&Right_Line[i]==Right_Line[i-1])
+        {//一堆数据一样，显然不能作为单调转折点
+            continue;
+        }
+        else if(Right_Line[i] <Right_Line[i+5]&&Right_Line[i] <Right_Line[i-5]&&
+        Right_Line[i] <Right_Line[i+4]&&Right_Line[i] <Right_Line[i-4]&&
+        Right_Line[i]<=Right_Line[i+3]&&Right_Line[i]<=Right_Line[i-3]&&
+        Right_Line[i]<=Right_Line[i+2]&&Right_Line[i]<=Right_Line[i-2]&&
+        Right_Line[i]<=Right_Line[i+1]&&Right_Line[i]<=Right_Line[i-1])
+        {//就很暴力，这个数据是在前5，后5中最大的，那就是单调突变点
+            monotonicity_change_line=i;
+            break;
+        }
+    }
+    return monotonicity_change_line;
+}
+//*********************************
+/*-------------------------------------------------------------------------------------------------------------------
+  @brief     左下角点检测
+  @param     起始行，终止行
+  @return    返回角点所在的行数，找不到返回0
+  Sample     left_down_guai[0]=Find_Left_Down_Point(MT9V03X_H-1,20);
+  @note      角点检测阈值可根据实际值更改
+-------------------------------------------------------------------------------------------------------------------*/
+int Find_Left_Down_Point(int start,int end)//找左下角点，返回值是角点所在的行数
+{
+    int i,t;
+    int left_down_line=0;
+    if(Left_Lost_Time>=0.9*MT9V03X_H)//大部分都丢线，没有拐点判断的意义
+       return left_down_line;
+    if(start<end)//--访问，要保证start>end
+    {
+        t=start;
+        start=end;
+        end=t;
+    }
+    if(start>=MT9V03X_H-1-5)//下面5行上面5行数据不稳定，不能作为边界点来判断，舍弃
+        start=MT9V03X_H-1-5;//另一方面，当判断第i行时，会访问到i+3和i-4行，防止越界
+    if(end<=MT9V03X_H-Search_Stop_Line)
+        end=MT9V03X_H-Search_Stop_Line;
+    if(end<=5)
+       end=5;
+    for(i=start;i>=end;i--)
+    {
+        if(left_down_line==0&&//只找第一个符合条件的点
+           abs(Left_Line[i]-Left_Line[i+1])<=5&&//角点的阈值可以更改
+           abs(Left_Line[i+1]-Left_Line[i+2])<=5&&  
+           abs(Left_Line[i+2]-Left_Line[i+3])<=5&&
+              (Left_Line[i]-Left_Line[i-2])>=5&&
+              (Left_Line[i]-Left_Line[i-3])>=10&&
+              (Left_Line[i]-Left_Line[i-4])>=10)
+        {
+            left_down_line=i;//获取行数即可
+            break;
+        }
+    }
+    return left_down_line;
+}
+//*********************************
+void Circle_Detect(void)
+{
+	if(circle_state_fsm==no_circle)
+	{
+		right_point_line=Find_Right_Down_Point(70,40);
+		if(right_point_line!=0)
+		{
+			circle_state_fsm=maybe_circle;
+		}
+	}
+	if(circle_state_fsm==maybe_circle)
+	{
+		right_point_line=Find_Right_Down_Point(70,40);
+		change_line=Monotonicity_Change_Right(right_point_line,0);
+		if(change_line!=0)
+		{
+			circle_state_fsm=circle_state;
+		}
+		else
+		{
+			circle_state_fsm=no_circle;
+		}
+	}
+	if(circle_state_fsm==circle_state)
+	{
+		right_point_line=Find_Right_Down_Point(70,20);
+		if(right_point_line==0)
+		{
+			for(int i=0;i<MT9V03X_H;i++)
+			{
+				Right_Line[i]=Left_Line[i]+Standard_Road_Wide[i];
+			}
+		}
+		else
+		{
+			for(int i=0;i<MT9V03X_H;i++)
+			{
+				Left_Line[i]=Right_Line[i]-Standard_Road_Wide[i];
+			}
+		}
+		if(Left_Line[60]<10&&Right_Line[60]>170)
+		{
+			circle_state_fsm=circle_state2;
+		}
+		
+	}
+	if(circle_state_fsm==circle_state2)
+	{
+		left_point_line=Find_Left_Down_Point(50,0);
+		Left_Add_Line(0,69,Left_Line[left_point_line],left_point_line);
+		if(Find_Right_Down_Point(20,0)!=0)
+		{
+			circle_state_fsm=circle_out_state;
+		}
+	}
+	if(circle_state_fsm==circle_out_state)
+	{
+		K_Add_Boundry_Left(Left_Line[69]-Left_Line[68],Left_Line[68],68,0);
+		if(Left_Line[68]<10)
+		{
+			circle_state_fsm=circle_end_state;
+		}
+	}
+	if(circle_state_fsm==circle_end_state)
+	{
+		for(int i=0;i<MT9V03X_H;i++)
+		{
+				Right_Line[i]=Left_Line[i]+Standard_Road_Wide[i];
+		}
+		if(Continuity_Change_Right(60,30)==0)
+		{
+			circle_state_fsm=no_circle;
+		}
+	}
 }

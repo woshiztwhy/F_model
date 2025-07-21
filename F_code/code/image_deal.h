@@ -7,6 +7,18 @@
 #include "zf_common_typedef.h"
 #include "math.h"
 #include "zf_device_mt9v03x.h"
+#include "image_deal.h"
+
+typedef enum
+{
+	no_circle,
+	maybe_circle,
+	circle_state,
+	circle_state2,
+	circle_out_state,
+	circle_end_state
+	
+}circle_fsm;
 
 extern  uint8    image_two_value[MT9V03X_H][MT9V03X_W];                          //¶þÖµ»¯ºóÍ¼ÏñÊý×é
 
@@ -43,6 +55,11 @@ extern		uint8 Ramp_Flag;                                                     //Æ
 extern		uint8 Straight_Flag;                                                 //Ö±µÀ±êÖ¾
 extern		uint8 Zebra_Flag;                                                    //°ßÂíÏß±êÖ¾  
 //***************************************ÔªËØ¼ì²â±êÖ¾*********************************************
+
+//***************************************»·µº¼ì²â²ÎÊý*********************************************
+extern      volatile circle_fsm circle_state_fsm;                                //»·µº×´Ì¬
+
+//***************************************»·µº¼ì²â²ÎÊý*********************************************
                                                                                 
 int My_Adapt_Threshold(uint8*image,uint16 width, uint16 height);
 void Image_Binarization(int threshold);
@@ -51,6 +68,8 @@ float Err_Sum(void);
 void Image_Add_Centerline(void);
 void Image_Add_Sideline(void);
 void Zebra_Detect(void);
+int Find_Right_Down_Point(int start,int end);
+void Circle_Detect(void);
 
 
 #endif
