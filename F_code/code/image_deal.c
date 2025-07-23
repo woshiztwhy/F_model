@@ -36,6 +36,7 @@ volatile circle_fsm circle_state_fsm=no_circle;
 volatile int right_point_line=0;
 volatile int left_point_line=0;
 volatile int change_line=0;
+volatile int left_change_line=0;
 
 const uint8 Standard_Road_Wide[MT9V03X_H]={
 	35,36,37,39,40,41,42,43,45,46,
@@ -206,8 +207,8 @@ void Longest_White_Column()//最长白列巡线
     //环岛3状态需要改变最长白列寻找范围
 	if(circle_state_fsm==circle_state2)
 	{
-		start_column=70;
-		end_column=MT9V03X_W-20;
+		start_column=110;
+		end_column=MT9V03X_W-10;
 	}
 //    if(Right_Island_Flag==1)//右环
 //    {
@@ -344,13 +345,13 @@ void Longest_White_Column()//最长白列巡线
   @note      通过中线计算误差，加权来减小干扰
 -------------------------------------------------------------------------------------------------------------------*/
 //加权控制
-const uint8 Weight[MT9V03X_H]=
+uint8 Weight[MT9V03X_H]=
 {
         1, 1, 1, 1, 1, 1, 1, 1, 1, 1,              //图像最远端00 ——09 行权重
         1, 1, 1, 1, 1, 1, 1, 1, 1, 1,              //图像最远端10 ——19 行权重
         1, 1, 1, 1, 1, 1, 1, 1, 1, 1,              //图像最远端20 ——29 行权重
         1, 1, 4, 8,12,14,16,18,20,20,              //图像最远端30 ——39 行权重
-       20,19,17,15,13,11, 9, 7, 4, 1,              //图像最远端40 ——49 行权重
+       20,19,17,15,13,11, 9, 7, 5, 3,              //图像最远端40 ——49 行权重
         1, 1, 1, 1, 1, 1, 1, 1, 1, 1,              //图像最远端50 ——59 行权重
         1, 1, 1, 1, 1, 1, 1, 1, 1, 1,              //图像最远端60 ——69 行权重
 };
@@ -381,7 +382,33 @@ float Err_Sum(void)
 //    err=err/5.0;
 //    return err;//注意此处，误差有正负，还有小数，注意数据类型
 //}
-
+/*-------------------------------------------------------------------------------------------------------------------
+  @brief     直道检测
+  @param     null
+  @return    null
+  Sample     Straight_Detect()；
+  @note      利用最长白列，边界起始点，中线起始点，
+-------------------------------------------------------------------------------------------------------------------*/
+void Straight_Detect(float Err)//直道检测
+{
+    Straight_Flag=0;
+    if(Search_Stop_Line>=65)//截止行很远
+    {
+        if(Boundry_Start_Left>=68&&Boundry_Start_Right>=65)//起始点靠下
+        {
+            if(-5<=Err&&Err<=5)//误差很小
+            {
+                if((Right_Line[41]-Right_Line[40])<=2)//右边界变化小
+                {
+                    if((Left_Line[41]-Left_Line[40])<=2)//左边界变化小
+                    {
+                        Straight_Flag=1;//认为是直道
+                    }
+                }
+            }
+        }
+    }
+}
 /*-------------------------------------------------------------------------------------------------------------------
   @brief     左补线
   @param     补线的起点，终点
@@ -701,6 +728,42 @@ int Continuity_Change_Right(int start,int end)
     }
     return continuity_change_flag;
 }
+
+/*-------------------------------------------------------------------------------------------------------------------
+  @brief     左赛道连续性检测
+  @param     起始点，终止点
+  @return    连续返回0，不连续返回断线出行数
+  Sample     continuity_change_flag=Continuity_Change_Leftt(int start,int end)
+  @note      连续性的阈值设置为5，可更改
+-------------------------------------------------------------------------------------------------------------------*/
+int Continuity_Change_Left(int start,int end)
+{
+    int i;
+    int t;
+    int continuity_change_flag=0;
+    if(Right_Lost_Time>=0.9*MT9V03X_H)//大部分都丢线，没必要判断了
+       return 1;
+    if(start>=MT9V03X_H-5)//数组越界保护
+        start=MT9V03X_H-5;
+    if(end<=5)
+       end=5;
+    if(start<end)//都是从下往上计算的，反了就互换一下
+    {
+       t=start;
+       start=end;
+       end=t;
+    }
+ 
+    for(i=start;i>=end;i--)
+    {
+        if(abs(Left_Line[i]-Left_Line[i-1])>=5)//连续性阈值是5，可更改
+       {
+            continuity_change_flag=i;
+            break;
+       }
+    }
+    return continuity_change_flag;
+}
 /*-------------------------------------------------------------------------------------------------------------------
   @brief     通过斜率，定点补线--
   @param     k       输入斜率
@@ -827,79 +890,129 @@ int Find_Left_Down_Point(int start,int end)//找左下角点，返回值是角点所在的行数
     }
     return left_down_line;
 }
+/*-------------------------------------------------------------------------------------------------------------------
+  @brief     左边界突变点检测
+  @param     null
+  @return    返回突变点所在的行数，找不到返回0
+  Sample     Find_Left_Change_Point_Down();
+  @note      此函数从上往下检测，用于圆环入环判断
+-------------------------------------------------------------------------------------------------------------------*/
+int Find_Left_Change_Point_Down(void)
+{
+    for(int i=Search_Stop_Line;i<MT9V03X_H-1;i++)
+    {
+        if((Left_Line[i+1]-Left_Line[i])>10)
+        {
+            return i;
+        }
+    }
+    return 0;
+}
+/*-------------------------------------------------------------------------------------------------------------------
+  @brief     左边界突变点检测
+  @param     null
+  @return    返回突变点所在的行数，找不到返回0
+  Sample     Find_Left_Change_Point_Up();
+  @note      此函数从下往上检测，用于圆环出环判断
+-------------------------------------------------------------------------------------------------------------------*/
+int Find_Left_Change_Point_Up(void)
+{
+    for(int i=MT9V03X_H-1;i>Search_Stop_Line;i--)
+    {
+        if((Left_Line[i]-Left_Line[i-1])>10)
+        {
+            return i;
+        }
+    }
+    return 0;
+}
 //*********************************
 void Circle_Detect(void)
 {
+	//如果左边界连续，右边界不连续（排除了十字的可能性），且可以找到右下角点，且可以找到单调突变点，则可以判断为圆环状态
 	if(circle_state_fsm==no_circle)
 	{
-		right_point_line=Find_Right_Down_Point(70,40);
-		if(right_point_line!=0)
-		{
-			circle_state_fsm=maybe_circle;
-		}
+        right_point_line=Find_Right_Down_Point(69,0);
+		if(Continuity_Change_Left(69,0)==0&&Continuity_Change_Right(69,0)!=0&&right_point_line!=0&&Monotonicity_Change_Right(right_point_line,0)!=0)
+        {
+            right_point_line=0;
+            circle_state_fsm=circle_state1;
+        }
 	}
-	if(circle_state_fsm==maybe_circle)
+	//当单调突变点特别靠下后，进入圆环状态二，补线进入圆环
+	//圆环状态一，左边界标准线宽补右边界
+	if(circle_state_fsm==circle_state1)
 	{
-		right_point_line=Find_Right_Down_Point(70,40);
-		change_line=Monotonicity_Change_Right(right_point_line,0);
-		if(change_line!=0)
-		{
-			circle_state_fsm=circle_state;
-		}
-		else
-		{
-			circle_state_fsm=no_circle;
-		}
+        right_point_line=Find_Right_Down_Point(69,0);
+		for(int i=MT9V03X_H-1;i>0;i--)
+        {
+            if((Left_Line[i]+Standard_Road_Wide[i])<MT9V03X_W-1)
+            {
+                Right_Line[i]=Left_Line[i]+Standard_Road_Wide[i];
+            }
+            else
+            {
+                Right_Line[i]=MT9V03X_W-1;
+            }
+        }
+
+        if(Monotonicity_Change_Right(right_point_line,0)>55||Monotonicity_Change_Right(right_point_line,0)==0)
+        {
+            circle_state_fsm=circle_state2;
+        }
+        right_point_line=0;
 	}
-	if(circle_state_fsm==circle_state)
-	{
-		right_point_line=Find_Right_Down_Point(70,20);
-		if(right_point_line==0)
-		{
-			for(int i=0;i<MT9V03X_H;i++)
-			{
-				Right_Line[i]=Left_Line[i]+Standard_Road_Wide[i];
-			}
-		}
-		else
-		{
-			for(int i=0;i<MT9V03X_H;i++)
-			{
-				Left_Line[i]=Right_Line[i]-Standard_Road_Wide[i];
-			}
-		}
-		if(Left_Line[60]<10&&Right_Line[60]>170)
-		{
-			circle_state_fsm=circle_state2;
-		}
-		
-	}
+	//当角点位置靠下，进入圆环状态3
+	//查找边界角点，通过此点补左边线
 	if(circle_state_fsm==circle_state2)
 	{
-		left_point_line=Find_Left_Down_Point(50,0);
-		Left_Add_Line(0,69,Left_Line[left_point_line],left_point_line);
-		if(Find_Right_Down_Point(20,0)!=0)
-		{
-			circle_state_fsm=circle_out_state;
-		}
+		left_change_line=Find_Left_Change_Point_Down();
+        Left_Add_Line(0,MT9V03X_H-1,Left_Line[left_change_line],left_change_line);
+        if(Find_Right_Down_Point(69,0)<7)
+        {
+            circle_state_fsm=circle_state3;
+            left_change_line=0;
+        }
 	}
+	//当上方检测到左边界转折点，进入出圆环状态 
+	//圆环状态3，通过左边界标准线宽补线，或者直接进行补线
+	if(circle_state_fsm==circle_state3)
+	{
+		if(Find_Left_Change_Point_Up()!=0)
+        {
+            circle_state_fsm=circle_out_state;
+        }
+	}
+	//当左边界起始点突然跳高，进入圆环结束状态
+	//出圆环状态，通过左边界转折点来补线
 	if(circle_state_fsm==circle_out_state)
 	{
-		K_Add_Boundry_Left(Left_Line[69]-Left_Line[68],Left_Line[68],68,0);
-		if(Left_Line[68]<10)
-		{
-			circle_state_fsm=circle_end_state;
-		}
+		left_change_line=Find_Left_Change_Point_Up();
+        Left_Add_Line(MT9V03X_W-1,0,Left_Line[left_change_line],left_change_line);
+        if(Boundry_Start_Left>7)
+        {
+            circle_state_fsm=circle_end_state;
+        }
 	}
+	//当角点位置靠右下，并且边界起始点不高，结束圆环状态
+	//通过左边线标准线宽补右边线（注意出界保护）
 	if(circle_state_fsm==circle_end_state)
 	{
-		for(int i=0;i<MT9V03X_H;i++)
+		for(int i=MT9V03X_H-1;i>0;i--)
 		{
-				Right_Line[i]=Left_Line[i]+Standard_Road_Wide[i];
+			if((Left_Line[i]+Standard_Road_Wide[i])<MT9V03X_W-1)
+            {
+                Right_Line[i]=Left_Line[i]+Standard_Road_Wide[i];
+            }
+            else
+            {
+                Right_Line[i]=MT9V03X_W-1;
+            }
 		}
-		if(Continuity_Change_Right(60,30)==0)
-		{
-			circle_state_fsm=no_circle;
-		}
+        right_point_line=Find_Right_Down_Point(69,0);
+		if(Boundry_Start_Right<10&&right_point_line<20)
+        {
+            circle_state_fsm=no_circle;
+        }
 	}
 }

@@ -481,3 +481,4 @@ uint8 mt9v03x_init (void)
 
     return return_state;
 }
+

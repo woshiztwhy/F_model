@@ -106,7 +106,7 @@ int16 Speed_Left_Real=0;
 int16 Speed_Right_Real=0;
 int16 Speed_Real=0;
 int16 Speed_Set=100;
-int16 Speed_max=150;
+int16 Speed_max=200;//180，0.8，0.1
 
 PID Direction_PID={0};
 PID Speed_PID={0};
@@ -135,14 +135,14 @@ int main (void)
 	
 	key_init(10); 
 	
-	encoder_quad_init(  ENCODER_1, ENCODER_1_A, ENCODER_1_B);                     // 初始化编码器模块与引脚 
+	encoder_quad_init(ENCODER_1, ENCODER_1_A, ENCODER_1_B);                     // 初始化编码器模块与引脚 
     encoder_quad_init(ENCODER_2, ENCODER_2_A, ENCODER_2_B);                     // 初始化编码器模块与引脚 
     pit_ms_init(PIT, 5);
 //	pit_ms_init(TIM7_PIT,50);
 	interrupt_set_priority(TIM6_IRQn,0);
 	interrupt_set_priority(TIM7_IRQn,1);
 	
-	PID_Init(&Direction_PID,0.7 ,0,0.09,8,50);//直道p:0.074d:0.63弯道p:0.14d:
+	PID_Init(&Direction_PID,0.8 ,0,0.1,8,50);//直道p:0.074d:0.63弯道p:0.14d:
 	PID_Init(&Speed_PID,0.3,0.01,0,8,50);//p:0.01-0.30
 	
 	//*********************flash数据读入**********************
@@ -200,7 +200,7 @@ int main (void)
 		Threshold=My_Adapt_Threshold(mt9v03x_image[0],MT9V03X_W, MT9V03X_H);   //大津算阈值
 		Image_Binarization(Threshold);                                         //图像二值化
 		Longest_White_Column();                                                //最长白线法寻边线 
-//        Circle_Detect();                                                       //圆环检测
+        //Circle_Detect();                                                       //圆环检测
 		Image_Add_Centerline();                                                //二值化图像补中线
 		Image_Add_Sideline();                                                  //二值化图像补边线
 		Zebra_Detect();                                                        //斑马线判断
@@ -441,6 +441,11 @@ int main (void)
 					ips200_draw_point(Left_Line[i],i,RGB565_RED);
 					ips200_draw_point(Right_Line[i],i ,RGB565_RED);
 				}
+				ips200_show_string(0,80,circle_state_fsm==circle_state1?"circle_state1":
+					circle_state_fsm==circle_state2?"circle_state2":
+					circle_state_fsm==circle_state3?"circle_state3":
+					circle_state_fsm==circle_out_state?"circle_out_state":
+					circle_state_fsm==circle_end_state?"circle_end_state":"no_circle");
 				switch(current_event)
 				{
 					case esc:
@@ -475,13 +480,13 @@ int main (void)
 //				}
 //				printf("\r\n %d,%d",Speed_Set,Speed_Real);
 //				printf("\r\n %f",Err_Sum());
-				ips200_show_int(48,16,Speed_Real,4);
-				ips200_show_int(0,0,Zebra_Flag,1);
+				/* ips200_show_int(48,16,Speed_Real,4);
+				ips200_show_int(0,0,Zebra_Flag,1); */
 
 //				ips200_show_float(54,48,Speed_PID.output,4,4);
 //				ips200_show_float(0,32,Direction_PID.output*Err_Sum(),4,5);
 //				ips200_show_int(0,0,Left_duty,4);
-				ips200_show_float(0,64,Err_Sum(),4,5);
+//				ips200_show_float(0,64,Err_Sum(),4,5);
 				
 				switch(current_event)
 				{
@@ -801,16 +806,41 @@ void pit_handler (void)
 	
 	//*************************PID数据计算******************************
 	float err=Err_Sum();
+	Straight_Detect(err);
 //	Direction_PID.kp=0.07+err*err/6.5/6.5/1000;//8.5
 //	float err=MT9V03X_W/2-((Left_Line[20]+Right_Line[20])>>1);	
 	PID_Calc(&Speed_PID,(float)(Speed_Set-Speed_Real));
 	PID_Calc(&Direction_PID,err);
-	if(-4<=err&&err<=4&&((Right_Line[41]-Right_Line[40])<=2))
+	if(Straight_Flag==1)
 	{
-		Speed_Set=Speed_max;//150
+		/* int temp_weight[MT9V03X_H] = 
+		{
+			1, 1, 1, 1, 1, 1, 1, 1, 1, 1,   // 图像最远端00 ——09 行权重
+			1, 1, 1, 1, 1, 1, 1, 1, 1, 1,   // 图像最远端10 ——19 行权重
+			1, 1, 1, 1, 1, 1, 1, 1, 1, 1,   // 图像最远端20 ——29 行权重
+			1, 1, 1, 1, 1, 1, 1, 1, 1, 3,   // 图像最远端30 ——39 行权重
+			5, 7, 9,11,13,15,17,19,20,20,   // 图像最远端40 ——49 行权重
+			20,18,16,13,10, 7, 4, 1, 1, 1,  // 图像最远端50 ——59 行权重 
+			1, 1, 1, 1, 1, 1, 1, 1, 1, 1,   // 图像最远端60 ——69 行权重
+		};
+		memcpy(Weight, temp_weight, sizeof(temp_weight)); */
+		PID_Init(&Direction_PID,0.8 ,0,0.1,8,50);
+		Speed_Set=Speed_max;//180
 	}
 	else
 	{
+		/* int temp_weight[MT9V03X_H] =
+		{
+    		1, 1, 1, 1, 1, 1, 1, 1, 1, 1,              //图像最远端00 ——09 行权重
+        	1, 1, 1, 1, 1, 1, 1, 1, 1, 1,              //图像最远端10 ——19 行权重
+        	1, 1, 1, 1, 1, 1, 1, 1, 1, 1,              //图像最远端20 ——29 行权重
+        	1, 1, 4, 8,12,14,16,18,20,20,              //图像最远端30 ——39 行权重
+    	   20,19,17,15,13,11, 9, 7, 5, 3,              //图像最远端40 ——49 行权重
+        	1, 1, 1, 1, 1, 1, 1, 1, 1, 1,              //图像最远端50 ——59 行权重
+        	1, 1, 1, 1, 1, 1, 1, 1, 1, 1,              //图像最远端60 ——69 行权重
+		};
+		memcpy(Weight, temp_weight, sizeof(temp_weight)); */
+		PID_Init(&Direction_PID,0.9 ,0,0.2,8,50);
 		Speed_Set=120;//120
 	}
 	//*************************PID数据计算******************************

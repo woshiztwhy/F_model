@@ -12,9 +12,9 @@
 typedef enum
 {
 	no_circle,
-	maybe_circle,
-	circle_state,
+	circle_state1,
 	circle_state2,
+	circle_state3,
 	circle_out_state,
 	circle_end_state
 	
@@ -22,7 +22,9 @@ typedef enum
 
 extern  uint8    image_two_value[MT9V03X_H][MT9V03X_W];                          //二值化后图像数组
 
-extern		const uint8  Standard_Road_Wide[];                          //标准赛宽数组
+extern      uint8 Weight[MT9V03X_H];                                       //权重数组
+
+extern		const uint8  Standard_Road_Wide[];                                   //标准赛宽数组
 extern		volatile int Left_Line[MT9V03X_H];                                   //左边线数组
 extern		volatile int Right_Line[MT9V03X_H];                                  //右边线数组
 extern		volatile int Mid_Line[MT9V03X_H];                                    //中线数组
@@ -70,6 +72,7 @@ void Image_Add_Sideline(void);
 void Zebra_Detect(void);
 int Find_Right_Down_Point(int start,int end);
 void Circle_Detect(void);
+void Straight_Detect(float Err);
 
 
 #endif
