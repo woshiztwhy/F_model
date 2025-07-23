@@ -146,7 +146,7 @@ void Image_Add_Centerline(void)
     uint16 i,j;
     for(i=0;i<MT9V03X_H;i++)
     {
-        j=(Left_Line[i]+Right_Line[i])/2;
+        j=Mid_Line[i];
 		image_two_value[i][j]=IMG_BLACK;
     }
 }
@@ -295,6 +295,7 @@ void Longest_White_Column()//最长白列巡线
         }
         Left_Line [i] = left_border;       //左边线线数组
         Right_Line[i] = right_border;      //右边线线数组
+        Mid_Line[i] = (Left_Line[i] + Right_Line[i]) / 2; //中线数组
     }
  
     for (i = MT9V03X_H - 1; i >= 0; i--)//赛道数据初步分析
@@ -364,7 +365,7 @@ float Err_Sum(void)
     //常规误差
     for(i=MT9V03X_H-1;i>=MT9V03X_H-Search_Stop_Line-1;i--)//常规误差计算
     {
-        err+=(MT9V03X_W/2-((Left_Line[i]+Right_Line[i])>>1))*Weight[i];//右移1位，等效除2
+        err+=(MT9V03X_W/2-(Mid_Line[i]))*Weight[i];//右移1位，等效除2
         weight_count+=Weight[i];
     }
     err=err/weight_count;
@@ -929,14 +930,24 @@ int Find_Left_Change_Point_Up(void)
 //*********************************
 void Circle_Detect(void)
 {
+    static int state_hold_counter = 0;
 	//如果左边界连续，右边界不连续（排除了十字的可能性），且可以找到右下角点，且可以找到单调突变点，则可以判断为圆环状态
 	if(circle_state_fsm==no_circle)
 	{
         right_point_line=Find_Right_Down_Point(69,0);
 		if(Continuity_Change_Left(69,0)==0&&Continuity_Change_Right(69,0)!=0&&right_point_line!=0&&Monotonicity_Change_Right(right_point_line,0)!=0)
         {
-            right_point_line=0;
-            circle_state_fsm=circle_state1;
+            state_hold_counter++;
+            if(state_hold_counter > 3) // 连续满足3帧才切换
+            {
+                right_point_line=0;
+                circle_state_fsm=circle_state1;
+                state_hold_counter = 0;
+            }
+        }
+        else
+        {
+            state_hold_counter = 0;
         }
 	}
 	//当单调突变点特别靠下后，进入圆环状态二，补线进入圆环
@@ -948,17 +959,26 @@ void Circle_Detect(void)
         {
             if((Left_Line[i]+Standard_Road_Wide[i])<MT9V03X_W-1)
             {
-                Right_Line[i]=Left_Line[i]+Standard_Road_Wide[i];
+                Mid_Line[i]=Left_Line[i]+Standard_Road_Wide[i]/2; //中线补线，左边界标准线宽补右边界
             }
             else
             {
-                Right_Line[i]=MT9V03X_W-1;
+                Mid_Line[i]=MT9V03X_W-1;
             }
         }
-
+        //如果单调突变点大于55，或者等于0，则认为是圆环状态
         if(Monotonicity_Change_Right(right_point_line,0)>55||Monotonicity_Change_Right(right_point_line,0)==0)
         {
-            circle_state_fsm=circle_state2;
+            state_hold_counter++;
+            if(state_hold_counter > 3) // 连续满足3帧才切换
+            {
+                circle_state_fsm=circle_state2;
+                state_hold_counter = 0;
+            }
+        }
+        else
+        {
+            state_hold_counter = 0;
         }
         right_point_line=0;
 	}
@@ -970,8 +990,17 @@ void Circle_Detect(void)
         Left_Add_Line(0,MT9V03X_H-1,Left_Line[left_change_line],left_change_line);
         if(Find_Right_Down_Point(69,0)<7)
         {
-            circle_state_fsm=circle_state3;
-            left_change_line=0;
+            state_hold_counter++;
+            if(state_hold_counter > 3) // 连续满足3帧才切换
+            {
+                circle_state_fsm=circle_state3;
+                state_hold_counter = 0;
+                left_change_line=0;
+            }
+        }
+        else
+        {
+            state_hold_counter = 0;
         }
 	}
 	//当上方检测到左边界转折点，进入出圆环状态 
@@ -980,7 +1009,16 @@ void Circle_Detect(void)
 	{
 		if(Find_Left_Change_Point_Up()!=0)
         {
-            circle_state_fsm=circle_out_state;
+            state_hold_counter++;
+            if(state_hold_counter > 3) // 连续满足3帧才切换
+            {
+                circle_state_fsm=circle_out_state;
+                state_hold_counter = 0;
+            }
+        }
+        else
+        {
+            state_hold_counter = 0;
         }
 	}
 	//当左边界起始点突然跳高，进入圆环结束状态
@@ -991,7 +1029,16 @@ void Circle_Detect(void)
         Left_Add_Line(MT9V03X_W-1,0,Left_Line[left_change_line],left_change_line);
         if(Boundry_Start_Left>7)
         {
-            circle_state_fsm=circle_end_state;
+            state_hold_counter++;
+            if(state_hold_counter > 3) // 连续满足3帧才切换
+            {
+                circle_state_fsm=circle_end_state;
+                state_hold_counter = 0;
+            }
+        }
+        else
+        {
+            state_hold_counter = 0;
         }
 	}
 	//当角点位置靠右下，并且边界起始点不高，结束圆环状态
@@ -1002,17 +1049,26 @@ void Circle_Detect(void)
 		{
 			if((Left_Line[i]+Standard_Road_Wide[i])<MT9V03X_W-1)
             {
-                Right_Line[i]=Left_Line[i]+Standard_Road_Wide[i];
+                Mid_Line[i]=Left_Line[i]+Standard_Road_Wide[i]/2; //中线补线，左边界标准线宽补右边界
             }
             else
             {
-                Right_Line[i]=MT9V03X_W-1;
+                Mid_Line[i]=MT9V03X_W-1;
             }
 		}
         right_point_line=Find_Right_Down_Point(69,0);
 		if(Boundry_Start_Right<10&&right_point_line<20)
         {
-            circle_state_fsm=no_circle;
+            state_hold_counter++;
+            if(state_hold_counter > 3) // 连续满足3帧才切换
+            {
+                circle_state_fsm=no_circle;
+                state_hold_counter = 0;
+            }
+        }
+        else
+        {
+            state_hold_counter = 0;
         }
 	}
 }

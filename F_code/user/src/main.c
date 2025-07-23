@@ -76,7 +76,7 @@
 // **************************** 代码区域 ****************************
 #define LED1                    (H2 )
 
-#define MAX_DUTY            (50 )                                               // 最大 MAX_DUTY% 占空比
+#define MAX_DUTY            (60 )                                               // 最大 MAX_DUTY% 占空比
 #define DIR_L               (A0 )
 #define PWM_L               (TIM5_PWM_CH2_A1)
 
@@ -106,10 +106,12 @@ int16 Speed_Left_Real=0;
 int16 Speed_Right_Real=0;
 int16 Speed_Real=0;
 int16 Speed_Set=100;
-int16 Speed_max=200;//180，0.8，0.1
+int16 Speed_max=300;//210-300
 
 PID Direction_PID={0};
 PID Speed_PID={0};
+
+float no_straight_pid[]={0.91,0,0.21};//140,0.94,0.21
 
 uint32 time_count=0;
 
@@ -320,7 +322,7 @@ int main (void)
 						{
 							case 0:
 								current_state=Dir_PID_State;
-								motor_dir_pid_init(&Direction_PID);
+								motor_dir_pid_init(no_straight_pid);
 								ips200_show_string(0,16,"->");
 								current_p=0;
 								break;
@@ -641,12 +643,12 @@ int main (void)
 				{
 					case up:
 						current_p=(current_p+num-1)%num;
-						motor_dir_pid_init(&Direction_PID);
+						motor_dir_pid_init(no_straight_pid);
 						ips200_show_string(0,(current_p+1)*16,"->");
 						break;
 					case down:
 						current_p=(current_p+1)%num;
-						motor_dir_pid_init(&Direction_PID);
+						motor_dir_pid_init(no_straight_pid);
 						ips200_show_string(0,(current_p+1)*16,"->");
 						break;
 					case enter:
@@ -684,16 +686,16 @@ int main (void)
 				switch(current_event)
 				{
 					case up:
-						Direction_PID.kp+=0.01;
-						motor_dir_pid_init(&Direction_PID);
+						no_straight_pid[0]+=0.01;
+						motor_dir_pid_init(no_straight_pid);
 						break;
 					case down:
-						Direction_PID.kp-=0.01;
-						motor_dir_pid_init(&Direction_PID);
+						no_straight_pid[0]-=0.01;
+						motor_dir_pid_init(no_straight_pid); 
 						break;
 					case esc:
 						current_state=Dir_PID_State;
-						motor_dir_pid_init(&Direction_PID);
+						motor_dir_pid_init(no_straight_pid);
 						ips200_show_string(0,16,"->");
 						current_p=0;
 						break;
@@ -714,16 +716,16 @@ int main (void)
 				switch(current_event)
 				{
 					case up:
-						Direction_PID.ki+=0.0001;
-						motor_dir_pid_init(&Direction_PID);
+						no_straight_pid[1]+=0.0001;
+						motor_dir_pid_init(no_straight_pid);
 						break;
 					case down:
-						Direction_PID.ki-=0.0001;
-						motor_dir_pid_init(&Direction_PID);
+						no_straight_pid[1]-=0.0001;
+						motor_dir_pid_init(no_straight_pid);
 						break;
 					case esc:
 						current_state=Dir_PID_State;
-						motor_dir_pid_init(&Direction_PID);
+						motor_dir_pid_init(no_straight_pid);
 						ips200_show_string(0,16,"->");
 						current_p=0;
 						break;
@@ -744,16 +746,16 @@ int main (void)
 				switch(current_event)
 				{
 					case up:
-						Direction_PID.kd+=0.01;
-						motor_dir_pid_init(&Direction_PID);
+						no_straight_pid[2]+=0.01;
+						motor_dir_pid_init(no_straight_pid);
 						break;
 					case down:
-						Direction_PID.kd-=0.01;
-						motor_dir_pid_init(&Direction_PID);
+						no_straight_pid[2]-=0.01;
+						motor_dir_pid_init(no_straight_pid);
 						break;
 					case esc:
 						current_state=Dir_PID_State;
-						motor_dir_pid_init(&Direction_PID);
+						motor_dir_pid_init(no_straight_pid);
 						ips200_show_string(0,16,"->");
 						current_p=0;
 						break;
@@ -825,7 +827,7 @@ void pit_handler (void)
 		};
 		memcpy(Weight, temp_weight, sizeof(temp_weight)); */
 		PID_Init(&Direction_PID,0.8 ,0,0.1,8,50);
-		Speed_Set=Speed_max;//180
+		Speed_Set=Speed_max;//210-300
 	}
 	else
 	{
@@ -840,8 +842,8 @@ void pit_handler (void)
         	1, 1, 1, 1, 1, 1, 1, 1, 1, 1,              //图像最远端60 ——69 行权重
 		};
 		memcpy(Weight, temp_weight, sizeof(temp_weight)); */
-		PID_Init(&Direction_PID,0.9 ,0,0.2,8,50);
-		Speed_Set=120;//120
+		PID_Init(&Direction_PID,no_straight_pid[0] ,no_straight_pid[1],no_straight_pid[2],8,50);
+		Speed_Set=140;//120
 	}
 	//*************************PID数据计算******************************
 	Left_duty=Speed_PID.output+Direction_PID.output;//*err*err/10000Left_duty+

@@ -67,16 +67,16 @@ void motor_speed_pid_init(PID *pid)
 	ips200_show_float(64,48,pid->kd,1,4);
 }
 
-void motor_dir_pid_init(PID *pid)
+void motor_dir_pid_init(float pid[])
 {
 	ips200_clear();
 	ips200_show_string(0,0,"Dir PID:");
 	ips200_show_string(32,16,"P:");
-	ips200_show_float(64,16,pid->kp,1,5);
+	ips200_show_float(64,16,pid[0],1,5);
 	ips200_show_string(32,32,"I:");
-	ips200_show_float(64,32,pid->ki,1,5);
+	ips200_show_float(64,32,pid[1],1,5);
 	ips200_show_string(32,48,"D:");
-	ips200_show_float(64,48,pid->kd,1,5);
+	ips200_show_float(64,48,pid[2],1,5);
 }
 
 void departure_mode_init(void)
